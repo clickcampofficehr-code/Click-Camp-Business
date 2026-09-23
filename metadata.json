@@ -1,0 +1,6 @@
+{
+  "name": "ClickCamp Technologies Workspace Portal",
+  "description": "Enterprise-grade workspace portal for Click Camp Business and Technology Services Limited featuring employee onboarding with document upload prerequisites, statutory compliance (Form 11, Form F, ESIC), DPDP Act consent, and HR verification dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

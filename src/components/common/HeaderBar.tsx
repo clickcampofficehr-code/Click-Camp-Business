@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useWorkspace } from '../../context/WorkspaceContext';
 import { UserRole } from '../../types';
+import { CompanyLogo } from './CompanyLogo';
 import {
   Shield,
   Lock,
@@ -49,22 +50,12 @@ export const HeaderBar: React.FC = () => {
     <header className="bg-white border-b border-neutral-200 sticky top-0 z-40 shadow-xs">
       <div className="px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
         {/* Brand & Live IST Clock */}
-        <div className="flex items-center gap-4 sm:gap-6">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-neutral-900 text-white flex items-center justify-center font-bold text-sm tracking-tighter shadow-xs">
-              <span className="text-emerald-400 font-black text-base">C</span>C
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-neutral-900 text-sm tracking-tight leading-none">
-                  ClickCamp
-                </span>
-                <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">
-                  Enterprise
-                </span>
-              </div>
-              <p className="text-[11px] text-neutral-500 hidden sm:block leading-tight">Operations Portal & Workspace</p>
-            </div>
+        <div className="flex items-center gap-3 sm:gap-5">
+          <div className="flex items-center gap-2">
+            <CompanyLogo variant="full" size="sm" showSubtitle={false} />
+            <span className="hidden sm:inline-block text-[9.5px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+              Enterprise
+            </span>
           </div>
 
           {/* Live Server Clock with IST */}

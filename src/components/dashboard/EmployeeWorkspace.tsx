@@ -24,7 +24,9 @@ import {
   LifeBuoy,
   MessageSquare,
   FolderOpen,
-  Lock
+  Lock,
+  BarChart3,
+  Layers
 } from 'lucide-react';
 import { AttendanceRegularization, ClientAccount, LeadItem, LeaveRequest } from '../../types';
 import { CompanyNoticeBoard } from '../common/CompanyNoticeBoard';
@@ -554,13 +556,22 @@ export const EmployeeWorkspace: React.FC = () => {
             </p>
           </div>
 
-          <button
-            onClick={() => setIsAddLeadModalOpen(true)}
-            className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg text-xs font-medium transition flex items-center gap-1 cursor-pointer"
-          >
-            <PlusCircle className="w-3.5 h-3.5" />
-            <span>Add Lead</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveTab('kanban')}
+              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Project Velocity & Kanban</span>
+            </button>
+            <button
+              onClick={() => setIsAddLeadModalOpen(true)}
+              className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg text-xs font-medium transition flex items-center gap-1 cursor-pointer"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>Add Lead</span>
+            </button>
+          </div>
         </div>
 
         {/* 3 Funnel Columns */}

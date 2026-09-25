@@ -26,12 +26,14 @@ import {
   Sparkles,
   UserCheck,
   UserPlus,
-  Camera
+  Camera,
+  Layers
 } from 'lucide-react';
 
 // Profile Settings & Custom PFP
 import { ProfileSettingsModal } from '../profile/ProfileSettingsModal';
 import { DatabaseSyncModal } from '../common/DatabaseSyncModal';
+import { CompanyLogo } from '../common/CompanyLogo';
 
 // Role-specific Workspaces
 import { AdminWorkspace } from '../dashboard/AdminWorkspace';
@@ -48,6 +50,7 @@ import { MeetingsWorkspace } from '../dashboard/MeetingsWorkspace';
 import { SupportFinanceWorkspace } from '../dashboard/SupportFinanceWorkspace';
 import { AuditLogWorkspace } from '../dashboard/AuditLogWorkspace';
 import { OnboardingPortal } from '../auth/OnboardingPortal';
+import { KanbanBoardWorkspace } from '../dashboard/KanbanBoardWorkspace';
 
 export const DashboardView: React.FC = () => {
   const {
@@ -134,6 +137,14 @@ export const DashboardView: React.FC = () => {
       id: 'dms',
       label: 'Document System (DMS)',
       icon: <FolderOpen className="w-4 h-4" />,
+      isEmployeeHub: true,
+      clearance: 'Employee Permitted'
+    },
+    {
+      id: 'kanban',
+      label: 'Projects & Kanban Board',
+      icon: <Layers className="w-4 h-4" />,
+      badge: 'Sprint 14',
       isEmployeeHub: true,
       clearance: 'Employee Permitted'
     },
@@ -229,18 +240,7 @@ export const DashboardView: React.FC = () => {
           {/* Brand Header */}
           <div className="p-4 border-b border-neutral-800 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-neutral-800 to-neutral-950 border border-neutral-700 flex items-center justify-center font-bold text-sm text-emerald-400 shadow-md">
-                CC
-              </div>
-              <div>
-                <h2 className="text-sm font-bold text-white tracking-tight leading-tight">
-                  ClickCamp Technologies
-                </h2>
-                <span className="text-[10px] text-neutral-400 font-medium flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Workspace v3.0
-                </span>
-              </div>
+              <CompanyLogo variant="full" size="sm" theme="dark" showSubtitle={true} />
             </div>
 
             <button
@@ -756,6 +756,7 @@ export const DashboardView: React.FC = () => {
           ) : (
             <>
               {activeTab === 'dashboard' && renderRoleDashboard()}
+              {activeTab === 'kanban' && <KanbanBoardWorkspace />}
               {activeTab === 'ops_queue' && <OpsWorkspace />}
               {activeTab === 'team_hub' && <TeamLeaderWorkspace />}
               {activeTab === 'hr_portal' && <HRWorkspace />}

@@ -105,6 +105,12 @@ interface WorkspaceContextType {
   updateProfilePicture: (avatarUrl: string, userId?: string) => Promise<boolean>;
   removeProfilePicture: (userId?: string) => Promise<boolean>;
 
+  // Company Brand Identity & Logo
+  companyLogoUrl: string | null;
+  updateCompanyLogo: (logoUrl: string | null) => void;
+  isBrandModalOpen: boolean;
+  setIsBrandModalOpen: (open: boolean) => void;
+
   // 2FA Security
   is2FAModalOpen: boolean;
   setIs2FAModalOpen: (open: boolean) => void;
@@ -227,6 +233,7 @@ interface WorkspaceContextType {
   notifications: AppNotification[];
   markAllNotificationsRead: () => void;
   activeToast: string | null;
+  showToast: (message: string) => void;
   clearToast: () => void;
 
   // Company Notice Board
@@ -345,6 +352,28 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Profile Settings Modal state
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
+
+  // Brand Identity & Company Logo state
+  const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(`${STORAGE_PREFIX}company_logo`) || null;
+    } catch {
+      return null;
+    }
+  });
+
+  const updateCompanyLogo = (logoUrl: string | null) => {
+    setCompanyLogoUrl(logoUrl);
+    try {
+      if (logoUrl) {
+        localStorage.setItem(`${STORAGE_PREFIX}company_logo`, logoUrl);
+      } else {
+        localStorage.removeItem(`${STORAGE_PREFIX}company_logo`);
+      }
+    } catch {}
+    recordAuditLog('APPROVAL', logoUrl ? 'Updated company logo graphic' : 'Reset company logo to vector default');
+  };
 
   // Admin screen lock
   const [isScreenLocked, setIsScreenLocked] = useState(false);
@@ -2335,6 +2364,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         updateProfilePicture,
         removeProfilePicture,
 
+        companyLogoUrl,
+        updateCompanyLogo,
+        isBrandModalOpen,
+        setIsBrandModalOpen,
+
         is2FAModalOpen,
         setIs2FAModalOpen,
         verify2FACode,
@@ -2414,6 +2448,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         notifications,
         markAllNotificationsRead,
         activeToast,
+        showToast,
         clearToast,
 
         // Company Notice Board

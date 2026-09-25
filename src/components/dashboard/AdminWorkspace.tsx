@@ -36,7 +36,11 @@ import {
   Clock,
   AlertCircle,
   Paperclip,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Layers,
+  BarChart3,
+  Zap,
+  Sparkles
 } from 'lucide-react';
 import { DocumentDossierModal } from '../common/DocumentDossierModal';
 import { EmployeeManagementPanel } from './EmployeeManagementPanel';
@@ -62,7 +66,9 @@ export const AdminWorkspace: React.FC = () => {
     reactivateEmployee,
     deleteEmployee,
     chatMessages,
-    auditLogs
+    auditLogs,
+    setActiveTab: setMainNavigationTab,
+    setIsBrandModalOpen
   } = useWorkspace();
 
   const [activeTab, setActiveTab] = useState<
@@ -271,8 +277,19 @@ Total Messages Audited: ${filteredAuditMessages.length}
           </p>
         </div>
 
-        {/* Console Navigation Tabs */}
-        <div className="flex items-center gap-1 bg-neutral-800/80 p-1 rounded-xl border border-neutral-700 overflow-x-auto max-w-full">
+        {/* Console Navigation Tabs & Brand Modal Trigger */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsBrandModalOpen(true)}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
+            title="Manage and preview company logo identity"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Brand & Logo</span>
+          </button>
+
+          <div className="flex items-center gap-1 bg-neutral-800/80 p-1 rounded-xl border border-neutral-700 overflow-x-auto max-w-full">
           {[
             { id: 'employees', label: 'Employee Management' },
             { id: 'employee_info', label: 'Employee Information' },
@@ -293,6 +310,7 @@ Total Messages Audited: ${filteredAuditMessages.length}
               {tab.label}
             </button>
           ))}
+          </div>
         </div>
       </div>
 
@@ -874,6 +892,36 @@ Total Messages Audited: ${filteredAuditMessages.length}
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* Project Velocity & Kanban Completion Analytics Banner */}
+          <div className="bg-white rounded-2xl p-5 border border-neutral-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600">
+                <Zap className="w-3.5 h-3.5" />
+                <span>Agile Engineering & Delivery Governance</span>
+              </div>
+              <h3 className="text-sm font-bold text-neutral-900 mt-1">
+                Project Velocity & Task Completion Analytics Dashboard
+              </h3>
+              <p className="text-xs text-neutral-500 mt-0.5 max-w-xl">
+                Real-time Recharts visualization tracking sprint-over-sprint velocity (37/54 pts completed), 3-sprint rolling moving average, cumulative flow (CFD), and sprint burndown curves.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:block text-right text-xs">
+                <span className="font-mono font-bold text-emerald-600 text-sm">69% Done</span>
+                <p className="text-[11px] text-neutral-400">Sprint 14 Active</p>
+              </div>
+              <button
+                onClick={() => setMainNavigationTab('kanban')}
+                className="px-4 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs cursor-pointer"
+              >
+                <BarChart3 className="w-4 h-4 text-emerald-400" />
+                <span>Open Velocity Analytics</span>
+              </button>
             </div>
           </div>
         </div>

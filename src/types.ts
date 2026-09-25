@@ -47,6 +47,7 @@ export interface UserAccount {
 
 export type MainNavTab =
   | 'dashboard'
+  | 'kanban'
   | 'admin_portal'
   | 'ops_queue'
   | 'team_hub'
@@ -391,4 +392,95 @@ export interface CompanyNotice {
   createdAt: string;
   updatedAt?: string;
 }
+
+// ==========================================
+// KANBAN & PROJECT VELOCITY ANALYTICS TYPES
+// ==========================================
+
+export type KanbanTaskStatus = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
+export type KanbanPriority = 'urgent' | 'high' | 'medium' | 'low';
+export type KanbanCategory = 'Feature' | 'Bug' | 'Improvement' | 'Security' | 'DevOps';
+
+export interface KanbanProject {
+  id: string;
+  name: string;
+  key: string;
+  description: string;
+  leadId: string;
+  leadName: string;
+  leadAvatar?: string;
+  status: 'active' | 'planning' | 'completed' | 'on_hold';
+  currentSprintId: string;
+  startDate: string;
+  targetDate: string;
+  budgetInr?: number;
+}
+
+export interface KanbanSprint {
+  id: string;
+  projectId: string;
+  name: string;
+  status: 'active' | 'completed' | 'future';
+  startDate: string;
+  endDate: string;
+  goal: string;
+  committedPoints: number;
+  completedPoints: number;
+}
+
+export interface KanbanTask {
+  id: string;
+  projectId: string;
+  sprintId: string;
+  code: string;
+  title: string;
+  description: string;
+  status: KanbanTaskStatus;
+  priority: KanbanPriority;
+  storyPoints: number;
+  assigneeId: string;
+  assigneeName: string;
+  assigneeAvatar?: string;
+  assigneeRole: string;
+  category: KanbanCategory;
+  createdAt: string;
+  completedAt?: string;
+  estimatedHours: number;
+  loggedHours: number;
+  tags: string[];
+}
+
+export interface VelocityDataPoint {
+  sprintName: string;
+  sprintId: string;
+  committedPoints: number;
+  completedPoints: number;
+  velocityRate: number; // percentage
+  movingAverage: number;
+}
+
+export interface TaskThroughputDataPoint {
+  date: string;
+  dayLabel: string;
+  completedTasks: number;
+  createdTasks: number;
+  cumulativeCompleted: number;
+}
+
+export interface CumulativeFlowDataPoint {
+  date: string;
+  dayLabel: string;
+  done: number;
+  inReview: number;
+  inProgress: number;
+  todo: number;
+  backlog: number;
+}
+
+export interface BurndownDataPoint {
+  day: string;
+  idealRemaining: number;
+  actualRemaining: number;
+}
+
 

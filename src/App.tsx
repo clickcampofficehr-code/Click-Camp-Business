@@ -5,6 +5,8 @@ import { DashboardView } from './components/views/DashboardView';
 import { ScreenLockModal } from './components/common/ScreenLockModal';
 import { ProfileSwitchAuthModal } from './components/common/ProfileSwitchAuthModal';
 import { OperationalHubAuthModal } from './components/common/OperationalHubAuthModal';
+import { CompanyLogo } from './components/common/CompanyLogo';
+import { CompanyLogoModal } from './components/common/CompanyLogoModal';
 import { Compass, ShieldCheck, CheckCircle2 } from 'lucide-react';
 
 const WorkspaceAppContent: React.FC = () => {
@@ -15,12 +17,7 @@ const WorkspaceAppContent: React.FC = () => {
       {/* Top Next.js App Router Simulated Navigation Bar */}
       <header className="bg-neutral-950 text-white border-b border-neutral-800 px-4 py-2 flex items-center justify-between text-xs shadow-xs z-40 select-none">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 font-bold text-white tracking-tight">
-            <span className="w-5 h-5 rounded-md bg-emerald-500 text-neutral-950 flex items-center justify-center font-bold text-xs">
-              ▲
-            </span>
-            <span className="hidden sm:inline">ClickCamp Next.js Portal</span>
-          </div>
+          <CompanyLogo variant="compact" size="xs" theme="dark" />
 
           <div className="h-4 w-[1px] bg-neutral-800 hidden sm:block" />
 
@@ -53,6 +50,9 @@ const WorkspaceAppContent: React.FC = () => {
 
       {/* Operational Hub Lockdown Authorization Modal */}
       <OperationalHubAuthModal />
+
+      {/* Brand & Company Logo Manager Modal */}
+      <CompanyLogoModal />
 
       {/* Floating System Toast Notification */}
       {activeToast && (

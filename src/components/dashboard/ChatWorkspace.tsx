@@ -28,6 +28,28 @@ export const ChatWorkspace: React.FC = () => {
   const [activeDmUser, setActiveDmUser] = useState<UserAccount | null>(() => {
     return allUsers.find((u) => u.id !== currentUser.id) || null;
   });
+
+  // Keep activeDmUser synchronized with live directory updates (e.g. avatar changes)
+  useEffect(() => {
+    if (activeDmUser) {
+      const updated = allUsers.find((u) => u.id === activeDmUser.id);
+      if (updated && updated.avatarUrl !== activeDmUser.avatarUrl) {
+        setActiveDmUser(updated);
+      }
+    } else {
+      const firstOther = allUsers.find((u) => u.id !== currentUser.id);
+      if (firstOther) setActiveDmUser(firstOther);
+    }
+  }, [allUsers, currentUser.id, activeDmUser]);
+
+  const getInitials = (name: string) => {
+    if (!name) return 'CC';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return 'CC';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
   const [mobileChatView, setMobileChatView] = useState<'list' | 'chat'>('chat');
   const [inputText, setInputText] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -226,11 +248,18 @@ export const ChatWorkspace: React.FC = () => {
                       }`}
                     >
                       <div className="relative shrink-0">
-                        <img
-                          src={u.avatarUrl}
-                          alt={u.name}
-                          className="w-7 h-7 rounded-full object-cover border border-neutral-700"
-                        />
+                        {u.avatarUrl ? (
+                          <img
+                            src={u.avatarUrl}
+                            alt={u.name}
+                            data-user-id={u.id}
+                            className="w-7 h-7 rounded-full object-cover border border-neutral-700"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center border border-neutral-700">
+                            {getInitials(u.name)}
+                          </div>
+                        )}
                         <span
                           className={`w-2 h-2 rounded-full absolute -bottom-0.5 -right-0.5 ring-1 ring-neutral-900 ${
                             isSuspended ? 'bg-neutral-500' : 'bg-emerald-400'
@@ -252,11 +281,18 @@ export const ChatWorkspace: React.FC = () => {
 
         {/* Current user badge at bottom */}
         <div className="p-3 border-t border-neutral-800 bg-neutral-950/80 flex items-center gap-2.5">
-          <img
-            src={currentUser.avatarUrl}
-            alt={currentUser.name}
-            className="w-8 h-8 rounded-full object-cover border border-neutral-700 shrink-0"
-          />
+          {currentUser.avatarUrl ? (
+            <img
+              src={currentUser.avatarUrl}
+              alt={currentUser.name}
+              data-user-id={currentUser.id}
+              className="w-8 h-8 rounded-full object-cover border border-neutral-700 shrink-0"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center border border-neutral-700 shrink-0">
+              {getInitials(currentUser.name)}
+            </div>
+          )}
           <div className="min-w-0 flex-1">
             <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
             <p className="text-[10px] text-neutral-400 truncate">{currentUser.roleLabel}</p>
@@ -304,11 +340,18 @@ export const ChatWorkspace: React.FC = () => {
             ) : activeDmUser ? (
               <>
                 <div className="relative shrink-0">
-                  <img
-                    src={activeDmUser.avatarUrl}
-                    alt={activeDmUser.name}
-                    className="w-8 h-8 rounded-full object-cover border border-neutral-200"
-                  />
+                  {activeDmUser.avatarUrl ? (
+                    <img
+                      src={activeDmUser.avatarUrl}
+                      alt={activeDmUser.name}
+                      data-user-id={activeDmUser.id}
+                      className="w-8 h-8 rounded-full object-cover border border-neutral-200"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center border border-neutral-200">
+                      {getInitials(activeDmUser.name)}
+                    </div>
+                  )}
                   <span
                     className={`w-2.5 h-2.5 rounded-full absolute -bottom-0.5 -right-0.5 ring-2 ring-white ${
                       activeDmUser.status === 'suspended' ? 'bg-neutral-400' : 'bg-emerald-500'
@@ -376,16 +419,30 @@ export const ChatWorkspace: React.FC = () => {
           ) : (
             filteredMessages.map((msg) => {
               const isMine = msg.senderId === currentUser.id;
+              const liveSender = isMine
+                ? currentUser
+                : allUsers.find((u) => u.id === msg.senderId);
+              const resolvedSenderAvatar =
+                liveSender && liveSender.avatarUrl !== undefined
+                  ? liveSender.avatarUrl
+                  : msg.senderAvatar;
               return (
                 <div
                   key={msg.id}
                   className={`flex items-start gap-3 group ${isMine ? 'flex-row-reverse' : 'flex-row'}`}
                 >
-                  <img
-                    src={msg.senderAvatar}
-                    alt={msg.senderName}
-                    className="w-8 h-8 rounded-full object-cover border border-neutral-200 shrink-0 mt-0.5"
-                  />
+                  {resolvedSenderAvatar ? (
+                    <img
+                      src={resolvedSenderAvatar}
+                      alt={msg.senderName}
+                      data-user-id={msg.senderId}
+                      className="w-8 h-8 rounded-full object-cover border border-neutral-200 shrink-0 mt-0.5"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center border border-neutral-200 shrink-0 mt-0.5">
+                      {getInitials(msg.senderName)}
+                    </div>
+                  )}
                   <div className={`min-w-0 max-w-xl ${isMine ? 'items-end text-right' : 'items-start text-left'}`}>
                     <div className={`flex items-baseline gap-1.5 mb-1 ${isMine ? 'justify-end' : 'justify-start'}`}>
                       <span className="font-bold text-neutral-900 text-xs">{msg.senderName}</span>

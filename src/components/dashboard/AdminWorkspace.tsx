@@ -278,18 +278,8 @@ Total Messages Audited: ${filteredAuditMessages.length}
           </p>
         </div>
 
-        {/* Console Navigation Tabs & Brand Modal Trigger */}
+        {/* Console Navigation Tabs */}
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setIsBrandModalOpen(true)}
-            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
-            title="Manage and preview company logo identity"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Brand & Logo</span>
-          </button>
-
           <div className="flex items-center gap-1 bg-neutral-800/80 p-1 rounded-xl border border-neutral-700 overflow-x-auto max-w-full">
           {[
             { id: 'launch_blueprint', label: '🚀 Production Blueprint' },
@@ -678,11 +668,24 @@ Total Messages Audited: ${filteredAuditMessages.length}
 
                           <td className="py-2.5 px-3">
                             <div className="flex items-center gap-2 font-sans">
-                              <img
-                                src={msg.senderAvatar}
-                                alt={msg.senderName}
-                                className="w-6 h-6 rounded-full object-cover border border-neutral-200"
-                              />
+                              {(() => {
+                                const liveSender = allUsers.find((u) => u.id === msg.senderId);
+                                const resolvedAvatar =
+                                  liveSender && liveSender.avatarUrl !== undefined
+                                    ? liveSender.avatarUrl
+                                    : msg.senderAvatar;
+                                return resolvedAvatar ? (
+                                  <img
+                                    src={resolvedAvatar}
+                                    alt={msg.senderName}
+                                    className="w-6 h-6 rounded-full object-cover border border-neutral-200"
+                                  />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-full bg-emerald-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+                                    {(msg.senderName || 'CC').slice(0, 2).toUpperCase()}
+                                  </div>
+                                );
+                              })()}
                               <div>
                                 <span className="font-bold text-neutral-900">{msg.senderName}</span>
                                 <span className="text-[10px] text-neutral-500 ml-1">({msg.senderRole})</span>

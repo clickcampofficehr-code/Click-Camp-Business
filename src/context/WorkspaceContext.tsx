@@ -305,7 +305,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // Apply individual DP overrides & employee info overrides
       return list.map((u) => {
         const cachedDp =
-          localStorage.getItem(`clickcamp_dp_${u.id}`) ||
+          localStorage.getItem(`clickcamp_dp_${u.id}`) ??
           (u.email ? localStorage.getItem(`clickcamp_dp_${u.email.toLowerCase()}`) : null);
         let extraInfo: Partial<UserAccount> = {};
         try {
@@ -313,10 +313,17 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           if (raw) extraInfo = JSON.parse(raw);
         } catch {}
 
+        const resolvedAvatar =
+          cachedDp !== null
+            ? cachedDp
+            : extraInfo.avatarUrl !== undefined
+            ? extraInfo.avatarUrl
+            : u.avatarUrl;
+
         return {
           ...u,
           ...extraInfo,
-          avatarUrl: cachedDp || extraInfo.avatarUrl || u.avatarUrl
+          avatarUrl: resolvedAvatar
         };
       });
     } catch {
@@ -347,11 +354,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const found = list.find((u) => u.id === savedUserId);
       if (found) {
         const cachedDp =
-          localStorage.getItem(`clickcamp_dp_${found.id}`) ||
+          localStorage.getItem(`clickcamp_dp_${found.id}`) ??
           (found.email ? localStorage.getItem(`clickcamp_dp_${found.email.toLowerCase()}`) : null);
         return {
           ...found,
-          avatarUrl: cachedDp || found.avatarUrl
+          avatarUrl: cachedDp !== null ? cachedDp : found.avatarUrl
         };
       }
     } catch {
@@ -374,26 +381,16 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Profile Settings Modal state
   const [isProfileSettingsOpen, setIsProfileSettingsOpen] = useState(false);
 
-  // Brand Identity & Company Logo state
-  const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
-  const [companyLogoUrl, setCompanyLogoUrl] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(`${STORAGE_PREFIX}company_logo`) || null;
-    } catch {
-      return null;
-    }
-  });
+  // Brand Identity & Company Logo state (Locked & Permanent)
+  const isBrandModalOpen = false;
+  const setIsBrandModalOpen = (_open: boolean) => {
+    // No-op: Brand modal and logo customization are permanently disabled
+  };
+  const companyLogoUrl =
+    '/assets/aistudio/Screenshot_2026-10-24-00-57-32-302_com.whatsapp.w4b-edit_b2bfc3c1.jpg';
 
-  const updateCompanyLogo = (logoUrl: string | null) => {
-    setCompanyLogoUrl(logoUrl);
-    try {
-      if (logoUrl) {
-        localStorage.setItem(`${STORAGE_PREFIX}company_logo`, logoUrl);
-      } else {
-        localStorage.removeItem(`${STORAGE_PREFIX}company_logo`);
-      }
-    } catch {}
-    recordAuditLog('APPROVAL', logoUrl ? 'Updated company logo graphic' : 'Reset company logo to vector default');
+  const updateCompanyLogo = (_logoUrl: string | null) => {
+    // No-op: Official company logo is permanent and unchangeable
   };
 
   // Admin screen lock
@@ -500,6 +497,156 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       };
       return () => channel.close();
     }
+  }, []);
+
+  // Hydrate and synchronize employee avatars, profiles, and chat histories with the Backend Database
+  const hydrateFromBackendDatabase = async (activeUserId?: string, activeEmail?: string) => {
+    try {
+      const { users: dbUsers, avatars: dbAvatars, chatMessages: dbMessages } =
+        await DatabaseService.fetchWorkspaceBootstrap();
+
+      // 1. Merge persisted users & avatars from backend database
+      let mergedUsersSnapshot: UserAccount[] = [];
+      setAllUsers((prevUsers) => {
+        const userMap = new Map<string, UserAccount>();
+        prevUsers.forEach((u) => userMap.set(u.id, u));
+
+        // Overlay persisted users from backend database
+        Object.values(dbUsers || {}).forEach((dbU: any) => {
+          if (!dbU || !dbU.id) return;
+          if (
+            ['usr-emp', 'usr-hr', 'usr-ops', 'usr-tl', 'usr-admin'].includes(dbU.id) ||
+            (dbU.email && (dbU.email.includes('@demo.com') || dbU.email.includes('@test.com')))
+          ) {
+            return;
+          }
+          const existing = userMap.get(dbU.id);
+          userMap.set(dbU.id, {
+            ...(existing || {}),
+            ...dbU
+          });
+        });
+
+        // Apply authoritative avatar map from backend database + localStorage
+        const updatedList = Array.from(userMap.values()).map((u) => {
+          const emailKey = u.email ? u.email.trim().toLowerCase() : '';
+          const backendAvatar =
+            dbAvatars && dbAvatars[u.id] !== undefined
+              ? dbAvatars[u.id]
+              : emailKey && dbAvatars && dbAvatars[emailKey] !== undefined
+              ? dbAvatars[emailKey]
+              : undefined;
+
+          const localAvatar =
+            localStorage.getItem(`clickcamp_dp_${u.id}`) ??
+            (emailKey ? localStorage.getItem(`clickcamp_dp_${emailKey}`) : null);
+
+          const finalAvatar =
+            backendAvatar !== undefined
+              ? backendAvatar
+              : localAvatar !== null
+              ? localAvatar
+              : u.avatarUrl;
+
+          if (finalAvatar !== undefined) {
+            try {
+              localStorage.setItem(`clickcamp_dp_${u.id}`, finalAvatar);
+              if (emailKey) localStorage.setItem(`clickcamp_dp_${emailKey}`, finalAvatar);
+            } catch {}
+          }
+
+          return {
+            ...u,
+            avatarUrl: finalAvatar !== undefined ? finalAvatar : u.avatarUrl
+          };
+        });
+
+        mergedUsersSnapshot = updatedList;
+        return updatedList;
+      });
+
+      // Update currentUser with latest persisted avatar and profile fields
+      setCurrentUser((prevCurr) => {
+        const targetId = activeUserId || prevCurr.id;
+        const targetEmail = (activeEmail || prevCurr.email || '').trim().toLowerCase();
+        const matched =
+          mergedUsersSnapshot.find(
+            (u) =>
+              u.id === targetId ||
+              (targetEmail && u.email.toLowerCase() === targetEmail)
+          ) || prevCurr;
+
+        const backendAvatar =
+          dbAvatars && dbAvatars[matched.id] !== undefined
+            ? dbAvatars[matched.id]
+            : targetEmail && dbAvatars && dbAvatars[targetEmail] !== undefined
+            ? dbAvatars[targetEmail]
+            : undefined;
+
+        return {
+          ...matched,
+          avatarUrl: backendAvatar !== undefined ? backendAvatar : matched.avatarUrl
+        };
+      });
+
+      // Sync merged users back to backend DB so any newly added or local profiles are persisted
+      if (mergedUsersSnapshot.length > 0) {
+        DatabaseService.syncUsersDirectory(mergedUsersSnapshot);
+      }
+
+      // 2. Merge persisted chat histories from backend database with local chat messages
+      setChatMessages((prevMsgs) => {
+        const msgMap = new Map<string, ChatMessage>();
+        prevMsgs.forEach((m) => {
+          if (m && m.id) msgMap.set(m.id, m);
+        });
+        (dbMessages || []).forEach((m: ChatMessage) => {
+          if (m && m.id) {
+            msgMap.set(m.id, {
+              ...(msgMap.get(m.id) || {}),
+              ...m
+            });
+          }
+        });
+
+        // Ensure every chat message has the latest persisted senderAvatar & recipientAvatar
+        const mergedMessages = Array.from(msgMap.values()).map((m) => {
+          const sender = mergedUsersSnapshot.find((u) => u.id === m.senderId);
+          const recipient = m.recipientId
+            ? mergedUsersSnapshot.find((u) => u.id === m.recipientId)
+            : undefined;
+          return {
+            ...m,
+            senderAvatar:
+              sender && sender.avatarUrl !== undefined
+                ? sender.avatarUrl
+                : dbAvatars?.[m.senderId] !== undefined
+                ? dbAvatars[m.senderId]
+                : m.senderAvatar,
+            recipientAvatar:
+              recipient && recipient.avatarUrl !== undefined
+                ? recipient.avatarUrl
+                : m.recipientId && dbAvatars?.[m.recipientId] !== undefined
+                ? dbAvatars[m.recipientId]
+                : m.recipientAvatar
+          };
+        });
+
+        if (mergedMessages.length > 0) {
+          DatabaseService.syncChatMessages(mergedMessages);
+        }
+        return mergedMessages;
+      });
+    } catch (err) {
+      console.warn('[Workspace] Backend database hydration warning:', err);
+    }
+  };
+
+  useEffect(() => {
+    try {
+      localStorage.removeItem(`${STORAGE_PREFIX}company_logo`);
+    } catch {}
+    hydrateFromBackendDatabase();
   }, []);
 
   // Fetch live backend data from Supabase if configured
@@ -745,10 +892,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [currentUser?.email]);
 
-  // Step 2: Real-Time Profile Picture Updates across tabs and clients
+  // Step 2: Real-Time Profile Picture & Chat Message Updates across tabs and clients
   useEffect(() => {
-    const unsubscribe = RealtimeService.on('profile_picture_changed', (data) => {
-      if (!data?.userId || !data?.newPicUrl) return;
+    const unsubscribeAvatar = RealtimeService.on('profile_picture_changed', (data) => {
+      if (!data?.userId || typeof data?.newPicUrl !== 'string') return;
 
       // Update current user if targeted
       setCurrentUser((prev) => {
@@ -768,12 +915,35 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         })
       );
 
+      // Update senderAvatar and recipientAvatar across all chat messages in state
+      setChatMessages((prev) =>
+        prev.map((msg) => {
+          let updated = msg;
+          if (msg.senderId === data.userId) {
+            updated = { ...updated, senderAvatar: data.newPicUrl };
+          }
+          if (msg.recipientId === data.userId) {
+            updated = { ...updated, recipientAvatar: data.newPicUrl };
+          }
+          return updated;
+        })
+      );
+
       // Direct DOM update for instant visual feedback without refresh
       RealtimeService.updateProfileImagesInDom(data.userId, data.newPicUrl);
     });
 
+    const unsubscribeChat = RealtimeService.on('chat_message_sent', (msg: ChatMessage) => {
+      if (!msg || !msg.id) return;
+      setChatMessages((prev) => {
+        if (prev.some((m) => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+    });
+
     return () => {
-      unsubscribe();
+      unsubscribeAvatar();
+      unsubscribeChat();
     };
   }, []);
 
@@ -853,10 +1023,18 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     authorizedBy?: string
   ) => {
     const previousUser = currentUser;
-    setCurrentUser(targetUser);
+    const savedAvatar =
+      localStorage.getItem(`clickcamp_dp_${targetUser.id}`) ??
+      (targetUser.email ? localStorage.getItem(`clickcamp_dp_${targetUser.email.toLowerCase()}`) : null);
+    const hydratedTarget: UserAccount = {
+      ...targetUser,
+      avatarUrl: savedAvatar !== null ? savedAvatar : targetUser.avatarUrl
+    };
+    setCurrentUser(hydratedTarget);
     setIsAuthenticated(true);
+    hydrateFromBackendDatabase(hydratedTarget.id, hydratedTarget.email);
     try {
-      localStorage.setItem(`${STORAGE_PREFIX}userId`, targetUser.id);
+      localStorage.setItem(`${STORAGE_PREFIX}userId`, hydratedTarget.id);
       localStorage.setItem(`${STORAGE_PREFIX}isAuth`, 'true');
     } catch {
       // ignore
@@ -1140,28 +1318,40 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return false;
     }
 
+    // Resolve latest persisted avatar for this employee before establishing session
+    const savedAvatar =
+      localStorage.getItem(`clickcamp_dp_${target.id}`) ??
+      (target.email ? localStorage.getItem(`clickcamp_dp_${target.email.toLowerCase()}`) : null);
+    const hydratedTarget: UserAccount = {
+      ...target,
+      avatarUrl: savedAvatar !== null ? savedAvatar : target.avatarUrl
+    };
+
     // Automatically enforce profile lock upon user login
     setIsProfileLockEnforced(true);
     setPendingProfileSwitch(null);
-    setCurrentUser(target);
+    setCurrentUser(hydratedTarget);
     setIsAuthenticated(true);
 
+    // Re-hydrate from backend database upon login so all persisted avatars and chat histories are restored
+    hydrateFromBackendDatabase(hydratedTarget.id, hydratedTarget.email);
+
     // If target role is employee: Lock operational hubs and direct to Webmail Client
-    if (target.role === 'employee') {
+    if (hydratedTarget.role === 'employee') {
       setActiveTab('webmail');
       setUnlockedHubs([]);
-    } else if (target.role === 'super_admin' || target.role === 'admin') {
+    } else if (hydratedTarget.role === 'super_admin' || hydratedTarget.role === 'admin') {
       setActiveTab('dashboard');
-    } else if (target.role === 'ops') {
+    } else if (hydratedTarget.role === 'ops') {
       setActiveTab('ops_queue');
-    } else if (target.role === 'team_leader') {
+    } else if (hydratedTarget.role === 'team_leader') {
       setActiveTab('team_hub');
-    } else if (target.role === 'hr') {
+    } else if (hydratedTarget.role === 'hr') {
       setActiveTab('hr_portal');
     }
 
     try {
-      localStorage.setItem(`${STORAGE_PREFIX}userId`, target.id);
+      localStorage.setItem(`${STORAGE_PREFIX}userId`, hydratedTarget.id);
       localStorage.setItem(`${STORAGE_PREFIX}isAuth`, 'true');
       localStorage.setItem(`${STORAGE_PREFIX}profileLockEnforced`, 'true');
     } catch {
@@ -1169,21 +1359,21 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     recordAuditLog(
       'LOGIN',
-      `User authenticated with password + TOTP 2FA verification: ${target.name} (${target.roleLabel}). Workstation profile locked.`
+      `User authenticated with password + TOTP 2FA verification: ${hydratedTarget.name} (${hydratedTarget.roleLabel}). Workstation profile locked.`
     );
     recordAuditLog(
       'PROFILE_LOCK',
-      `Profile locked to ${target.name} (${target.roleLabel}). Cross-profile transitions restricted without administrator permission.`
+      `Profile locked to ${hydratedTarget.name} (${hydratedTarget.roleLabel}). Cross-profile transitions restricted without administrator permission.`
     );
 
-    if (target.role === 'employee') {
+    if (hydratedTarget.role === 'employee') {
       recordAuditLog(
         'HUB_LOCK',
-        `Operational Hubs locked for employee ${target.name}. Allowed: Webmail, Meetings & MOM, CRM, Chat, and DMS.`
+        `Operational Hubs locked for employee ${hydratedTarget.name}. Allowed: Webmail, Meetings & MOM, CRM, Chat, and DMS.`
       );
-      showToast(`Welcome back, ${target.name}! Operational Hubs locked. Allowed: Webmail, Meetings, CRM, Chat, and DMS.`);
+      showToast(`Welcome back, ${hydratedTarget.name}! Operational Hubs locked. Allowed: Webmail, Meetings, CRM, Chat, and DMS.`);
     } else {
-      showToast(`Welcome back, ${target.name}! Session established & profile locked.`);
+      showToast(`Welcome back, ${hydratedTarget.name}! Session established & profile locked.`);
     }
     return true;
   };
@@ -1208,6 +1398,17 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       clockOut();
     }
 
+    // Flush current employee directory (including avatars) and chat histories to backend database before logout
+    DatabaseService.syncUsersDirectory(allUsers);
+    DatabaseService.syncChatMessages(chatMessages);
+    if (currentUser?.id) {
+      DatabaseService.saveEmployeeAvatar(
+        currentUser.id,
+        currentUser.email,
+        currentUser.avatarUrl || ''
+      );
+    }
+
     // Persist shift log end time in database (UPDATE shift_logs SET end_time = NOW() WHERE session_id = ?)
     DatabaseService.endShiftLog(sessionId, Math.floor(elapsedSeconds / 60));
 
@@ -1218,7 +1419,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setUnlockedHubs([]);
     setPendingHubAuth(null);
 
-    // Destroy temporary session tokens ONLY - all employee data, profile, punch logs, webmails, tasks, documents remain 100% permanently intact!
+    // Destroy temporary session tokens ONLY - all employee data, avatars, chat histories, punch logs, webmails, tasks, documents remain 100% permanently intact!
     try {
       localStorage.setItem(`${STORAGE_PREFIX}isAuth`, 'false');
       sessionStorage.removeItem('clickcamp_session_id');
@@ -1273,6 +1474,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     setAllUsers((prev) => [newEmp, ...prev]);
+    DatabaseService.saveEmployeeProfile(newEmp);
     recordAuditLog('APPROVAL', `Provisioned new employee credentials for ${data.name} (${data.email}) with role ${data.role}`);
     showToast(`Employee ${data.name} provisioned! Initial password: ${tempPassword}`);
     return newEmp;
@@ -1286,6 +1488,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           if (currentUser.id === id) {
             setCurrentUser(updated);
           }
+          DatabaseService.saveEmployeeProfile(updated);
           return updated;
         }
         return u;
@@ -1303,7 +1506,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
     setAllUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, status: 'suspended', suspendedReason: reason || 'Administrative Review' } : u))
+      prev.map((u) => {
+        if (u.id === id) {
+          const updated: UserAccount = { ...u, status: 'suspended', suspendedReason: reason || 'Administrative Review' };
+          DatabaseService.saveEmployeeProfile(updated);
+          return updated;
+        }
+        return u;
+      })
     );
     recordAuditLog('REJECTION', `Suspended employee access for ${target.name} (${target.email}). Reason: ${reason || 'Administrative Review'}`);
     showToast(`Access suspended for ${target.name}.`);
@@ -1317,19 +1527,22 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return;
     }
     setAllUsers((prev) =>
-      prev.map((u) =>
-        u.id === id
-          ? {
-              ...u,
-              status: 'terminated',
-              terminationDetails: {
-                reason,
-                lastWorkingDay,
-                clearedAt: new Date().toISOString()
-              }
+      prev.map((u) => {
+        if (u.id === id) {
+          const updated: UserAccount = {
+            ...u,
+            status: 'terminated',
+            terminationDetails: {
+              reason,
+              lastWorkingDay,
+              clearedAt: new Date().toISOString()
             }
-          : u
-      )
+          };
+          DatabaseService.saveEmployeeProfile(updated);
+          return updated;
+        }
+        return u;
+      })
     );
     recordAuditLog('REJECTION', `Terminated employment for ${target.name} (${target.email}). LWD: ${lastWorkingDay}. Reason: ${reason}`);
     showToast(`Employment terminated for ${target.name}. System access revoked.`);
@@ -1339,7 +1552,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const target = allUsers.find((u) => u.id === id);
     if (!target) return;
     setAllUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, status: 'active', suspendedReason: undefined } : u))
+      prev.map((u) => {
+        if (u.id === id) {
+          const updated: UserAccount = { ...u, status: 'active', suspendedReason: undefined };
+          DatabaseService.saveEmployeeProfile(updated);
+          return updated;
+        }
+        return u;
+      })
     );
     recordAuditLog('APPROVAL', `Reactivated employee access for ${target.name} (${target.email})`);
     showToast(`Account reactivated for ${target.name}.`);
@@ -1384,6 +1604,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           if (currentUser.id === id) {
             setCurrentUser(updated);
           }
+          DatabaseService.saveEmployeeProfile(updated);
           return updated;
         }
         return u;
@@ -1398,7 +1619,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return newPassword;
   };
 
-  // Profile Picture Upload & Management (Resilient DB + LocalStorage)
+  // Profile Picture Upload & Management (Persisted in Backend Database + Supabase + LocalStorage)
   const updateProfilePicture = async (avatarUrl: string, userId?: string): Promise<boolean> => {
     const targetId = userId || currentUser.id;
     const targetUser = allUsers.find((u) => u.id === targetId) || currentUser;
@@ -1411,7 +1632,21 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       prev.map((u) => (u.id === targetId ? { ...u, avatarUrl } : u))
     );
 
-    // Save to dedicated localStorage keys for permanent resilience
+    // Also update senderAvatar and recipientAvatar across all associated chat messages
+    setChatMessages((prev) =>
+      prev.map((msg) => {
+        let updated = msg;
+        if (msg.senderId === targetId) {
+          updated = { ...updated, senderAvatar: avatarUrl };
+        }
+        if (msg.recipientId === targetId) {
+          updated = { ...updated, recipientAvatar: avatarUrl };
+        }
+        return updated;
+      })
+    );
+
+    // Save to dedicated localStorage keys for instant resilience
     try {
       localStorage.setItem(`clickcamp_dp_${targetId}`, avatarUrl);
       if (targetUser.email) {
@@ -1419,20 +1654,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     } catch {}
 
-    // Update Supabase if configured
-    if (isSupabaseConfigured && supabase) {
-      try {
-        await (supabase as any)
-          .from('profiles')
-          .update({
-            avatar_url: avatarUrl,
-            updated_at: new Date().toISOString()
-          })
-          .or(`id.eq.${targetId},email.eq.${targetUser.email}`);
-      } catch (err) {
-        console.warn('Supabase profile picture sync error:', err);
-      }
-    }
+    // Persist avatar change in the backend database (and Supabase if configured)
+    await DatabaseService.saveEmployeeAvatar(targetId, targetUser.email || '', avatarUrl);
 
     // Step 2: Broadcast the update in real-time across WebSockets/BroadcastChannel to all clients
     RealtimeService.emit('profile_picture_changed', {
@@ -1440,8 +1663,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       newPicUrl: avatarUrl
     });
 
-    recordAuditLog('APPROVAL', `User ${targetUser.name} updated DP profile photo (broadcast via Realtime socket & stored permanently in DB)`);
-    showToast('Display picture updated instantly across workstations.');
+    recordAuditLog('APPROVAL', `User ${targetUser.name} updated DP profile photo (persisted in backend database & synced across chat history)`);
+    showToast('Display picture updated and saved in backend database.');
     return true;
   };
 
@@ -1457,31 +1680,39 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       prev.map((u) => (u.id === targetId ? { ...u, avatarUrl: '' } : u))
     );
 
+    setChatMessages((prev) =>
+      prev.map((msg) => {
+        let updated = msg;
+        if (msg.senderId === targetId) {
+          updated = { ...updated, senderAvatar: '' };
+        }
+        if (msg.recipientId === targetId) {
+          updated = { ...updated, recipientAvatar: '' };
+        }
+        return updated;
+      })
+    );
+
     try {
-      localStorage.removeItem(`clickcamp_dp_${targetId}`);
+      localStorage.setItem(`clickcamp_dp_${targetId}`, '');
       if (targetUser.email) {
-        localStorage.removeItem(`clickcamp_dp_${targetUser.email.toLowerCase()}`);
+        localStorage.setItem(`clickcamp_dp_${targetUser.email.toLowerCase()}`, '');
       }
     } catch {}
 
-    if (isSupabaseConfigured && supabase) {
-      try {
-        await (supabase as any)
-          .from('profiles')
-          .update({
-            avatar_url: null,
-            updated_at: new Date().toISOString()
-          })
-          .or(`id.eq.${targetId},email.eq.${targetUser.email}`);
-      } catch (err) {}
-    }
+    await DatabaseService.saveEmployeeAvatar(targetId, targetUser.email || '', '');
+
+    RealtimeService.emit('profile_picture_changed', {
+      userId: targetId,
+      newPicUrl: ''
+    });
 
     recordAuditLog('APPROVAL', `User ${targetUser.name} removed custom profile picture (reverted to initials)`);
     showToast('Profile picture removed. Reverted to initials.');
     return true;
   };
 
-  // Full Employee Information & Dossier Update (Database + LocalStorage)
+  // Full Employee Information & Dossier Update (Backend Database + Supabase + LocalStorage)
   const updateEmployeeInformation = async (
     userId: string,
     data: Partial<UserAccount>
@@ -1504,13 +1735,19 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Save extra info & DP to dedicated localStorage keys
     try {
       localStorage.setItem(`clickcamp_emp_info_${userId}`, JSON.stringify(data));
-      if (data.avatarUrl) {
+      if (data.avatarUrl !== undefined) {
         localStorage.setItem(`clickcamp_dp_${userId}`, data.avatarUrl);
         if (targetUser.email) {
           localStorage.setItem(`clickcamp_dp_${targetUser.email.toLowerCase()}`, data.avatarUrl);
         }
       }
     } catch {}
+
+    // Persist in backend database
+    await DatabaseService.saveEmployeeProfile(updatedRecord);
+    if (data.avatarUrl !== undefined) {
+      await DatabaseService.saveEmployeeAvatar(userId, targetUser.email || '', data.avatarUrl);
+    }
 
     // Update Supabase if configured
     if (isSupabaseConfigured && supabase) {
@@ -1914,6 +2151,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (prev.some((u) => u.email.toLowerCase() === corporateEmail.toLowerCase())) {
           return prev;
         }
+        DatabaseService.saveEmployeeProfile(newEmp);
         return [...prev, newEmp];
       });
     }
@@ -2041,7 +2279,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     showToast(`Document "${doc.title}" uploaded to DMS!`);
   };
 
-  // Chat & Webmail
+  // Chat & Webmail (Persisted in Backend Database + Real-Time Broadcast)
   const sendChatMessage = (
     channelId: string,
     text: string,
@@ -2059,7 +2297,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 
     const newMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
+      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       channelId: resolvedChannelId,
       senderId: currentUser.id,
       senderName: currentUser.name,
@@ -2077,6 +2315,10 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       status: 'delivered'
     };
     setChatMessages((prev) => [...prev, newMsg]);
+
+    // Persist chat message in backend database and broadcast in real-time
+    DatabaseService.saveChatMessage(newMsg);
+    RealtimeService.emit('chat_message_sent', newMsg);
   };
 
   const sendDirectMessage = (

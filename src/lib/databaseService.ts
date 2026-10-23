@@ -346,5 +346,224 @@ export const DatabaseService = {
       console.error('[DB] Production purge exception:', err);
       return { deletedProfilesCount: 0, cleanedLogsCount: 0, status: 'partial' };
     }
+  },
+
+  // ---------------------------------------------------------------------------
+  // 8. Persistent Employee Avatars, Profiles & Chat Histories (Backend DB + Supabase)
+  // ---------------------------------------------------------------------------
+  async fetchWorkspaceBootstrap(): Promise<{
+    users: Record<string, any>;
+    avatars: Record<string, string>;
+    chatMessages: any[];
+  }> {
+    let backendUsers: Record<string, any> = {};
+    let backendAvatars: Record<string, string> = {};
+    let backendMessages: any[] = [];
+
+    try {
+      const res = await fetch('/api/workspace/bootstrap', {
+        method: 'GET',
+        headers: { Accept: 'application/json' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.users && typeof data.users === 'object') {
+          backendUsers = data.users;
+        }
+        if (data?.avatars && typeof data.avatars === 'object') {
+          backendAvatars = data.avatars;
+        }
+        if (Array.isArray(data?.chatMessages)) {
+          backendMessages = data.chatMessages;
+        }
+      }
+    } catch (err) {
+      console.warn('[DB] Backend bootstrap fetch fallback:', err);
+    }
+
+    // Merge Supabase messages_chat if configured
+    if (supabase) {
+      try {
+        const { data: sbMsgs, error } = await (supabase as any)
+          .from('messages_chat')
+          .select('*')
+          .order('created_at', { ascending: true });
+
+        if (!error && Array.isArray(sbMsgs) && sbMsgs.length > 0) {
+          const msgMap = new Map<string, any>();
+          backendMessages.forEach((m) => {
+            if (m?.id) msgMap.set(m.id, m);
+          });
+          sbMsgs.forEach((row: any) => {
+            const meta = row.attachments || {};
+            const id = meta.clientMessageId || row.id;
+            if (!msgMap.has(id)) {
+              msgMap.set(id, {
+                id,
+                channelId: row.channel_name || meta.channelId || 'c-general',
+                senderId: row.sender_id,
+                senderName: meta.senderName || 'Employee',
+                senderAvatar:
+                  backendAvatars[row.sender_id] !== undefined
+                    ? backendAvatars[row.sender_id]
+                    : meta.senderAvatar || '',
+                senderRole: meta.senderRole || 'Operations Specialist',
+                recipientId: row.receiver_id || meta.recipientId || undefined,
+                recipientName: meta.recipientName || undefined,
+                recipientAvatar: meta.recipientAvatar || undefined,
+                isDirect: Boolean(row.receiver_id || meta.isDirect),
+                text: row.content || '',
+                timestamp:
+                  meta.timestamp ||
+                  new Date(row.created_at).toLocaleTimeString('en-IN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  }),
+                attachmentName: meta.attachmentName,
+                attachmentType: meta.attachmentType,
+                attachmentUrl: meta.attachmentUrl,
+                status: 'delivered'
+              });
+            }
+          });
+          backendMessages = Array.from(msgMap.values());
+        }
+      } catch (err) {
+        console.warn('[DB] Supabase messages_chat fetch note:', err);
+      }
+    }
+
+    return {
+      users: backendUsers,
+      avatars: backendAvatars,
+      chatMessages: backendMessages
+    };
+  },
+
+  async saveEmployeeAvatar(userId: string, email: string, avatarUrl: string): Promise<boolean> {
+    try {
+      await fetch('/api/workspace/avatar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, email, avatarUrl })
+      });
+    } catch (err) {
+      console.warn('[DB] Backend avatar persist warning:', err);
+    }
+
+    if (supabase) {
+      try {
+        await (supabase as any)
+          .from('profiles')
+          .update({
+            avatar_url: avatarUrl || null,
+            updated_at: new Date().toISOString()
+          })
+          .or(`id.eq.${userId},email.eq.${email}`);
+      } catch (err) {
+        console.warn('[DB] Supabase avatar update warning:', err);
+      }
+    }
+    return true;
+  },
+
+  async saveEmployeeProfile(user: Record<string, any>): Promise<boolean> {
+    try {
+      await fetch('/api/workspace/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user })
+      });
+    } catch (err) {
+      console.warn('[DB] Backend user save warning:', err);
+    }
+    return true;
+  },
+
+  async syncUsersDirectory(users: any[]): Promise<boolean> {
+    try {
+      await fetch('/api/workspace/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ users })
+      });
+    } catch (err) {
+      console.warn('[DB] Backend directory sync warning:', err);
+    }
+    return true;
+  },
+
+  async saveChatMessage(message: any): Promise<any[]> {
+    let persistedList: any[] = [];
+    try {
+      const res = await fetch('/api/workspace/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.chatMessages)) {
+          persistedList = data.chatMessages;
+        }
+      }
+    } catch (err) {
+      console.warn('[DB] Backend chat save warning:', err);
+    }
+
+    if (supabase && message) {
+      try {
+        await (supabase as any).from('messages_chat').insert([
+          {
+            sender_id: message.senderId,
+            receiver_id: message.recipientId || null,
+            channel_name: message.channelId,
+            content: message.text || '',
+            attachments: {
+              clientMessageId: message.id,
+              channelId: message.channelId,
+              senderName: message.senderName,
+              senderAvatar: message.senderAvatar,
+              senderRole: message.senderRole,
+              recipientId: message.recipientId,
+              recipientName: message.recipientName,
+              recipientAvatar: message.recipientAvatar,
+              isDirect: message.isDirect,
+              timestamp: message.timestamp,
+              attachmentName: message.attachmentName,
+              attachmentType: message.attachmentType,
+              attachmentUrl: message.attachmentUrl
+            },
+            is_read: false,
+            created_at: new Date().toISOString()
+          }
+        ]);
+      } catch (err) {
+        console.warn('[DB] Supabase chat insert note:', err);
+      }
+    }
+
+    return persistedList;
+  },
+
+  async syncChatMessages(messages: any[]): Promise<any[]> {
+    try {
+      const res = await fetch('/api/workspace/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.chatMessages)) {
+          return data.chatMessages;
+        }
+      }
+    } catch (err) {
+      console.warn('[DB] Backend chat batch sync warning:', err);
+    }
+    return messages;
   }
 };
+

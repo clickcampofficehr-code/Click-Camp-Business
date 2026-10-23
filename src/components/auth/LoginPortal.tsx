@@ -147,20 +147,19 @@ export const LoginPortal: React.FC = () => {
       <div className="pointer-events-none absolute bottom-0 right-0 w-[500px] h-[300px] bg-gradient-to-tl from-emerald-600/10 via-teal-500/5 to-transparent blur-3xl opacity-60" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:32px_32px] opacity-[0.035]" />
 
-      {/* Header Elements: 'CC' logo, 'ClickCamp Technologies', small badge 'OPERATIONS V3.0' */}
+      {/* Header Elements: Permanent Company Logo, 'ClickCamp Technologies', small badge 'OPERATIONS V3.0' */}
       <header className="relative z-10 max-w-6xl mx-auto w-full flex items-center justify-between pb-6 pt-2">
         <div
-          onClick={() => setIsBrandModalOpen(true)}
-          className="group flex items-center gap-3.5 cursor-pointer select-none"
-          title="ClickCamp Technologies Brand Hub (Click to view or customize)"
+          className="flex items-center gap-3.5 select-none"
+          title="ClickCamp Technologies"
         >
-          {/* 'CC' Logo with Vibrant Green Gradient */}
-          <div className="relative shrink-0 flex items-center justify-center transition-transform duration-300 group-hover:scale-105 group-hover:shadow-[0_0_24px_rgba(16,185,129,0.4)]">
+          {/* Permanent Official Company Logo */}
+          <div className="relative shrink-0 flex items-center justify-center">
             <CCLogoMark size={42} />
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-            <span className="font-bold text-lg sm:text-xl text-white tracking-tight font-sans drop-shadow-sm group-hover:text-emerald-300 transition-colors">
+            <span className="font-bold text-lg sm:text-xl text-white tracking-tight font-sans drop-shadow-sm">
               ClickCamp Technologies
             </span>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold tracking-wider uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.15)]">

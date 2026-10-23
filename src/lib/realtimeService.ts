@@ -14,6 +14,7 @@ export interface ProfilePictureChangedPayload {
 
 export interface RealtimeEventMap {
   profile_picture_changed: ProfilePictureChangedPayload;
+  chat_message_sent: any;
   shift_ended: { userId: string; sessionId: string; timestamp: string };
   email_dispatched: { emailId: string; toEmail: string; fromEmail: string; subject: string };
 }
@@ -55,14 +56,17 @@ class RealtimeWorkspaceService {
           .on('broadcast', { event: 'profile_picture_changed' }, ({ payload }: any) => {
             this.notifyListeners('profile_picture_changed', payload);
           })
+          .on('broadcast', { event: 'chat_message_sent' }, ({ payload }: any) => {
+            this.notifyListeners('chat_message_sent', payload);
+          })
           .on('broadcast', { event: 'shift_ended' }, ({ payload }: any) => {
             this.notifyListeners('shift_ended', payload);
           })
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload: any) => {
-            if (payload.new && payload.new.avatar_url) {
+            if (payload.new && payload.new.avatar_url !== undefined) {
               this.notifyListeners('profile_picture_changed', {
                 userId: payload.new.id,
-                newPicUrl: payload.new.avatar_url
+                newPicUrl: payload.new.avatar_url || ''
               });
             }
           })

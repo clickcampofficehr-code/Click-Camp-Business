@@ -6,8 +6,7 @@ import { ScreenLockModal } from './components/common/ScreenLockModal';
 import { ProfileSwitchAuthModal } from './components/common/ProfileSwitchAuthModal';
 import { OperationalHubAuthModal } from './components/common/OperationalHubAuthModal';
 import { CompanyLogo } from './components/common/CompanyLogo';
-import { CompanyLogoModal } from './components/common/CompanyLogoModal';
-import { Compass, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Compass, CheckCircle2 } from 'lucide-react';
 
 const WorkspaceAppContent: React.FC = () => {
   const { isAuthenticated, activeTab, currentUser, activeToast, clearToast } = useWorkspace();
@@ -50,9 +49,6 @@ const WorkspaceAppContent: React.FC = () => {
 
       {/* Operational Hub Lockdown Authorization Modal */}
       <OperationalHubAuthModal />
-
-      {/* Brand & Company Logo Manager Modal */}
-      <CompanyLogoModal />
 
       {/* Floating System Toast Notification */}
       {activeToast && (

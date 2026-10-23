@@ -14,11 +14,12 @@ import {
   Forward,
   Paperclip,
   X,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft
 } from 'lucide-react';
 
 export const WebmailWorkspace: React.FC = () => {
-  const { webmail, sendWebmail, toggleStarEmail, allUsers, currentUser } = useWorkspace();
+  const { webmail, sendWebmail, toggleStarEmail, softDeleteEmail, allUsers, currentUser } = useWorkspace();
 
   const [activeFolder, setActiveFolder] = useState<'inbox' | 'sent' | 'starred' | 'trash'>('inbox');
   const [selectedMail, setSelectedMail] = useState<WebmailItem | null>(null);
@@ -26,14 +27,49 @@ export const WebmailWorkspace: React.FC = () => {
 
   // Compose Modal state
   const [isComposeOpen, setIsComposeOpen] = useState(false);
-  const [composeTo, setComposeTo] = useState('ananya.s@clickcamp.tech');
+  const [composeTo, setComposeTo] = useState('operations@clickcamp.site');
   const [composeSubject, setComposeSubject] = useState('');
   const [composeBody, setComposeBody] = useState('');
 
-  // Filter emails based on folder and search
+  const folders = [
+    {
+      id: 'inbox' as const,
+      label: 'Inbox',
+      icon: <Inbox className="w-3.5 h-3.5" />,
+      count: webmail.filter((m) => (m.folder === 'inbox' || !m.folder) && !m.isRead && !m.isHiddenFromUser).length
+    },
+    {
+      id: 'starred' as const,
+      label: 'Starred',
+      icon: <Star className="w-3.5 h-3.5" />,
+      count: webmail.filter((m) => m.isStarred && !m.isHiddenFromUser).length
+    },
+    {
+      id: 'sent' as const,
+      label: 'Sent Mail',
+      icon: <Send className="w-3.5 h-3.5" />,
+      count: webmail.filter((m) => m.folder === 'sent' && !m.isHiddenFromUser).length
+    },
+    {
+      id: 'trash' as const,
+      label: 'Trash',
+      icon: <Trash2 className="w-3.5 h-3.5" />,
+      count: webmail.filter((m) => m.folder === 'trash' || m.isHiddenFromUser).length
+    }
+  ];
+
+  // Filter emails based on folder and search (Step 3: Soft Deletes handled gracefully)
   const filteredMails = webmail.filter((item) => {
-    let matchesFolder = item.folder === activeFolder;
-    if (activeFolder === 'starred') matchesFolder = item.isStarred;
+    let matchesFolder = false;
+    if (activeFolder === 'inbox') {
+      matchesFolder = (item.folder === 'inbox' || !item.folder) && !item.isHiddenFromUser;
+    } else if (activeFolder === 'sent') {
+      matchesFolder = item.folder === 'sent' && !item.isHiddenFromUser;
+    } else if (activeFolder === 'starred') {
+      matchesFolder = Boolean(item.isStarred) && !item.isHiddenFromUser;
+    } else if (activeFolder === 'trash') {
+      matchesFolder = item.folder === 'trash' || Boolean(item.isHiddenFromUser);
+    }
 
     const matchesSearch =
       item.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -54,9 +90,9 @@ export const WebmailWorkspace: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs overflow-hidden flex flex-col md:flex-row h-[calc(100vh-140px)] min-h-[560px]">
-      {/* Sidebar Folders */}
-      <div className="w-full md:w-56 bg-neutral-900 text-white p-4 flex flex-col justify-between border-r border-neutral-800 shrink-0">
+    <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs overflow-hidden flex flex-col md:flex-row h-[calc(100dvh-175px)] md:h-[calc(100vh-140px)] min-h-[480px] md:min-h-[560px]">
+      {/* Sidebar Folders - Desktop */}
+      <div className="hidden md:flex md:w-56 bg-neutral-900 text-white p-4 flex-col justify-between border-r border-neutral-800 shrink-0">
         <div>
           {/* Header */}
           <div className="flex items-center gap-2 mb-4">
@@ -65,7 +101,7 @@ export const WebmailWorkspace: React.FC = () => {
             </div>
             <div>
               <h3 className="text-xs font-bold text-white">ClickCamp Mail</h3>
-              <p className="text-[10px] text-neutral-400 font-mono">{currentUser.email}</p>
+              <p className="text-[10px] text-neutral-400 font-mono truncate max-w-[140px]">{currentUser.email}</p>
             </div>
           </div>
 
@@ -80,12 +116,7 @@ export const WebmailWorkspace: React.FC = () => {
 
           {/* Folder items */}
           <div className="space-y-1">
-            {[
-              { id: 'inbox' as const, label: 'Inbox', icon: <Inbox className="w-3.5 h-3.5" />, count: webmail.filter(m => m.folder === 'inbox' && !m.isRead).length },
-              { id: 'starred' as const, label: 'Starred', icon: <Star className="w-3.5 h-3.5" />, count: webmail.filter(m => m.isStarred).length },
-              { id: 'sent' as const, label: 'Sent Mail', icon: <Send className="w-3.5 h-3.5" />, count: webmail.filter(m => m.folder === 'sent').length },
-              { id: 'trash' as const, label: 'Trash', icon: <Trash2 className="w-3.5 h-3.5" />, count: webmail.filter(m => m.folder === 'trash').length }
-            ].map((f) => (
+            {folders.map((f) => (
               <button
                 key={f.id}
                 onClick={() => {
@@ -124,8 +155,59 @@ export const WebmailWorkspace: React.FC = () => {
         </div>
       </div>
 
-      {/* Center: Email List */}
+      {/* Center: Email List (Full width on mobile when no email is selected) */}
       <div className={`w-full md:w-80 border-r border-neutral-200 flex flex-col bg-white shrink-0 ${selectedMail ? 'hidden md:flex' : 'flex'}`}>
+        {/* Mobile Header with Folders & Compose */}
+        <div className="md:hidden bg-neutral-900 text-white p-3 border-b border-neutral-800 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                @
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-white">ClickCamp Mail</h3>
+                <span className="text-[10px] text-neutral-400 font-mono">{currentUser.email}</span>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsComposeOpen(true)}
+              className="px-3.5 py-2 min-h-[38px] bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Compose</span>
+            </button>
+          </div>
+
+          {/* Folder Filter Carousel */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1">
+            {folders.map((f) => {
+              const isCurrent = activeFolder === f.id;
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => {
+                    setActiveFolder(f.id);
+                    setSelectedMail(null);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 min-h-[38px] ${
+                    isCurrent
+                      ? 'bg-neutral-800 text-emerald-400 border border-neutral-700 shadow-xs'
+                      : 'text-neutral-400 hover:text-white bg-neutral-950/60 border border-neutral-800'
+                  }`}
+                >
+                  {f.icon}
+                  <span>{f.label}</span>
+                  {f.count > 0 && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400">
+                      {f.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Search header */}
         <div className="p-3 border-b border-neutral-200">
           <div className="relative">
@@ -135,7 +217,7 @@ export const WebmailWorkspace: React.FC = () => {
               placeholder="Search in mail..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              className="w-full pl-8 pr-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900"
             />
           </div>
         </div>
@@ -154,7 +236,7 @@ export const WebmailWorkspace: React.FC = () => {
                 <div
                   key={mail.id}
                   onClick={() => setSelectedMail(mail)}
-                  className={`p-3 transition cursor-pointer hover:bg-neutral-50 ${
+                  className={`p-3.5 transition cursor-pointer hover:bg-neutral-50 min-h-[60px] ${
                     isSelected ? 'bg-emerald-50/50 border-l-2 border-emerald-500' : ''
                   } ${!mail.isRead ? 'font-semibold bg-neutral-50/30' : ''}`}
                 >
@@ -166,7 +248,7 @@ export const WebmailWorkspace: React.FC = () => {
                           e.stopPropagation();
                           toggleStarEmail(mail.id);
                         }}
-                        className="text-neutral-300 hover:text-amber-400 cursor-pointer"
+                        className="p-1 min-h-[32px] min-w-[32px] flex items-center justify-center text-neutral-300 hover:text-amber-400 cursor-pointer"
                       >
                         <Star
                           className={`w-3.5 h-3.5 ${mail.isStarred ? 'fill-amber-400 text-amber-400' : ''}`}
@@ -187,13 +269,14 @@ export const WebmailWorkspace: React.FC = () => {
       {/* Right: Message Reader View */}
       <div className={`flex-1 flex flex-col bg-neutral-50/60 overflow-y-auto min-w-0 ${!selectedMail ? 'hidden md:flex' : 'flex'}`}>
         {selectedMail ? (
-          <div className="p-6 space-y-4 max-w-3xl">
+          <div className="p-4 sm:p-6 space-y-4 max-w-3xl">
             {/* Mobile Back button */}
             <button
               onClick={() => setSelectedMail(null)}
-              className="md:hidden text-xs text-emerald-600 font-bold mb-2 cursor-pointer"
+              className="md:hidden min-h-[44px] px-3.5 py-2 bg-neutral-200/90 hover:bg-neutral-300 text-neutral-800 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition mb-2 shadow-2xs self-start"
             >
-              ← Back to list
+              <ChevronLeft className="w-4 h-4 text-neutral-800" />
+              <span>Back to {activeFolder.charAt(0).toUpperCase() + activeFolder.slice(1)}</span>
             </button>
 
             {/* Email Subject Title */}
@@ -231,29 +314,48 @@ export const WebmailWorkspace: React.FC = () => {
             </div>
 
             {/* Quick Reply & Action Buttons */}
-            <div className="flex items-center gap-2 pt-2">
-              <button
-                onClick={() => {
-                  setComposeTo(selectedMail.fromEmail);
-                  setComposeSubject(`Re: ${selectedMail.subject}`);
-                  setIsComposeOpen(true);
-                }}
-                className="px-3.5 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-              >
-                <Reply className="w-3.5 h-3.5" />
-                <span>Reply</span>
-              </button>
-              <button
-                onClick={() => {
-                  setComposeSubject(`Fwd: ${selectedMail.subject}`);
-                  setComposeBody(`\n\n--- Forwarded Message ---\nFrom: ${selectedMail.from}\n${selectedMail.body}`);
-                  setIsComposeOpen(true);
-                }}
-                className="px-3.5 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
-              >
-                <Forward className="w-3.5 h-3.5" />
-                <span>Forward</span>
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-neutral-200">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setComposeTo(selectedMail.fromEmail);
+                    setComposeSubject(`Re: ${selectedMail.subject}`);
+                    setIsComposeOpen(true);
+                  }}
+                  className="px-3.5 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Reply className="w-3.5 h-3.5" />
+                  <span>Reply</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setComposeSubject(`Fwd: ${selectedMail.subject}`);
+                    setComposeBody(`\n\n--- Forwarded Message ---\nFrom: ${selectedMail.from}\n${selectedMail.body}`);
+                    setIsComposeOpen(true);
+                  }}
+                  className="px-3.5 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Forward className="w-3.5 h-3.5" />
+                  <span>Forward</span>
+                </button>
+                <button
+                  onClick={() => {
+                    softDeleteEmail(selectedMail.id);
+                    setSelectedMail(null);
+                  }}
+                  className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
+                  title="Soft delete to Trash. Permanent copy remains in database archive."
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Move to Trash</span>
+                </button>
+              </div>
+
+              {/* Step 3: SOC2 Immutable Database Indicator */}
+              <div className="flex items-center gap-1.5 text-[10px] text-emerald-800 bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                <span>Immutable Record • Hard-Delete Blocked by DB Rules</span>
+              </div>
             </div>
           </div>
         ) : (

@@ -107,12 +107,12 @@ export const DmsWorkspace: React.FC = () => {
       <div className="bg-white rounded-2xl p-5 border border-neutral-200 shadow-xs">
         {/* Filter and Search Bar */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-4 border-b border-neutral-100">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setCategoryFilter(cat)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer capitalize ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer capitalize min-h-[36px] ${
                   categoryFilter === cat
                     ? 'bg-neutral-900 text-white shadow-xs'
                     : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
@@ -130,13 +130,61 @@ export const DmsWorkspace: React.FC = () => {
               placeholder="Search document title..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+              className="w-full pl-8 pr-3 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900"
             />
           </div>
         </div>
 
-        {/* Documents Table */}
-        <div className="mt-4 overflow-x-auto">
+        {/* Mobile Document Cards View */}
+        <div className="md:hidden divide-y divide-neutral-100 mt-2">
+          {filteredDocs.length === 0 ? (
+            <div className="py-8 text-center text-neutral-400 text-xs">
+              No documents found in this category.
+            </div>
+          ) : (
+            filteredDocs.map((doc) => (
+              <div key={doc.id} className="py-3.5 space-y-2 hover:bg-neutral-50/70 transition">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-neutral-100 border border-neutral-200 flex items-center justify-center text-neutral-700 font-bold text-xs shrink-0">
+                      {doc.fileType}
+                    </div>
+                    <div className="min-w-0">
+                      <span className="font-bold text-neutral-900 block text-xs truncate">{doc.title}</span>
+                      <span className="text-[10px] text-neutral-400">
+                        {doc.category} · {doc.version} · {doc.fileSize}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-neutral-400 shrink-0 font-mono">{doc.uploadedAt}</span>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11px] text-neutral-500 truncate">By {doc.uploadedBy}</span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setSelectedPreviewDoc(doc)}
+                      className="px-3 py-1.5 min-h-[36px] bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg text-xs font-semibold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Preview</span>
+                    </button>
+                    <button
+                      onClick={() => alert(`Downloading ${doc.title} (${doc.version}) from ClickCamp S3 vault.`)}
+                      className="p-2 min-h-[36px] min-w-[36px] text-neutral-500 hover:text-neutral-900 rounded-lg transition flex items-center justify-center cursor-pointer"
+                      title="Download"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop Documents Table */}
+        <div className="hidden md:block mt-4 overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-neutral-50 text-neutral-500 uppercase tracking-wider text-[10px] border-b border-neutral-200">
               <tr>

@@ -15,7 +15,8 @@ import {
   Image as ImageIcon,
   Download,
   Clock,
-  Filter
+  Filter,
+  ChevronLeft
 } from 'lucide-react';
 import { ChatMessage, UserAccount } from '../../types';
 
@@ -27,8 +28,10 @@ export const ChatWorkspace: React.FC = () => {
   const [activeDmUser, setActiveDmUser] = useState<UserAccount | null>(() => {
     return allUsers.find((u) => u.id !== currentUser.id) || null;
   });
+  const [mobileChatView, setMobileChatView] = useState<'list' | 'chat'>('chat');
   const [inputText, setInputText] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isMobileSearchActive, setIsMobileSearchActive] = useState<boolean>(false);
   const [attachment, setAttachment] = useState<{
     name: string;
     type: 'pdf' | 'image' | 'doc';
@@ -110,9 +113,13 @@ export const ChatWorkspace: React.FC = () => {
   const currentChannelObj = channels.find((c) => c.id === activeChannel) || channels[0];
 
   return (
-    <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs overflow-hidden flex flex-col md:flex-row h-[calc(100vh-140px)] min-h-[600px]">
+    <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs overflow-hidden flex flex-col md:flex-row h-[calc(100dvh-175px)] md:h-[calc(100vh-140px)] min-h-[480px] md:min-h-[600px]">
       {/* Sidebar: Channels & Online Teammates */}
-      <div className="w-full md:w-72 bg-neutral-900 text-white flex flex-col justify-between border-r border-neutral-800 shrink-0">
+      <div
+        className={`w-full md:w-72 bg-neutral-900 text-white flex-col justify-between border-r border-neutral-800 shrink-0 ${
+          mobileChatView === 'chat' ? 'hidden md:flex' : 'flex'
+        }`}
+      >
         <div className="flex-1 overflow-y-auto">
           {/* Header */}
           <div className="p-4 border-b border-neutral-800 flex items-center justify-between">
@@ -128,8 +135,38 @@ export const ChatWorkspace: React.FC = () => {
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Connected to WebSocket" />
           </div>
 
+          {/* Mode Switcher Tabs for Mobile Quick-Filter */}
+          <div className="px-3 pt-3 pb-1 md:hidden">
+            <div className="grid grid-cols-2 gap-1 p-1 bg-neutral-950/70 rounded-xl border border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setActiveMode('channel')}
+                className={`py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                  activeMode === 'channel'
+                    ? 'bg-neutral-800 text-emerald-400 shadow-xs'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Hash className="w-3.5 h-3.5" />
+                <span>Channels</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveMode('dm')}
+                className={`py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                  activeMode === 'dm'
+                    ? 'bg-neutral-800 text-emerald-400 shadow-xs'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Direct Msgs</span>
+              </button>
+            </div>
+          </div>
+
           {/* Public Channels List */}
-          <div className="p-3">
+          <div className={`p-3 ${activeMode === 'dm' ? 'hidden md:block' : 'block'}`}>
             <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 px-2 flex items-center justify-between">
               <span>Public Channels</span>
               <span className="text-[10px] font-mono text-neutral-400">4</span>
@@ -143,14 +180,15 @@ export const ChatWorkspace: React.FC = () => {
                     onClick={() => {
                       setActiveMode('channel');
                       setActiveChannel(chan.id);
+                      setMobileChatView('chat');
                     }}
-                    className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition cursor-pointer ${
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium transition cursor-pointer min-h-[44px] ${
                       isActive
                         ? 'bg-neutral-800 text-emerald-400 font-semibold shadow-xs'
                         : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
                     }`}
                   >
-                    <Hash className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-emerald-400' : 'text-neutral-500'}`} />
+                    <Hash className={`w-4 h-4 shrink-0 ${isActive ? 'text-emerald-400' : 'text-neutral-500'}`} />
                     <span className="truncate">{chan.name}</span>
                   </button>
                 );
@@ -159,7 +197,7 @@ export const ChatWorkspace: React.FC = () => {
           </div>
 
           {/* Direct Messaging Directory */}
-          <div className="p-3 border-t border-neutral-800">
+          <div className={`p-3 border-t border-neutral-800 ${activeMode === 'channel' ? 'hidden md:block' : 'block'}`}>
             <div className="flex items-center justify-between px-2 mb-1.5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                 Direct Messages (1:1)
@@ -179,8 +217,9 @@ export const ChatWorkspace: React.FC = () => {
                       onClick={() => {
                         setActiveMode('dm');
                         setActiveDmUser(u);
+                        setMobileChatView('chat');
                       }}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left transition cursor-pointer group ${
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition cursor-pointer group min-h-[44px] ${
                         isSelected
                           ? 'bg-neutral-800 text-emerald-400 font-semibold'
                           : 'text-neutral-300 hover:text-white hover:bg-neutral-800/60'
@@ -190,7 +229,7 @@ export const ChatWorkspace: React.FC = () => {
                         <img
                           src={u.avatarUrl}
                           alt={u.name}
-                          className="w-6 h-6 rounded-full object-cover border border-neutral-700"
+                          className="w-7 h-7 rounded-full object-cover border border-neutral-700"
                         />
                         <span
                           className={`w-2 h-2 rounded-full absolute -bottom-0.5 -right-0.5 ring-1 ring-neutral-900 ${
@@ -229,23 +268,37 @@ export const ChatWorkspace: React.FC = () => {
       </div>
 
       {/* Main Chat Stream */}
-      <div className="flex-1 flex flex-col justify-between bg-neutral-50 min-w-0">
+      <div
+        className={`flex-1 flex flex-col justify-between bg-neutral-50 min-w-0 ${
+          mobileChatView === 'list' ? 'hidden md:flex' : 'flex'
+        }`}
+      >
         {/* Active Chat Header */}
-        <div className="p-3.5 bg-white border-b border-neutral-200 flex items-center justify-between gap-4 shadow-2xs">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="p-3 sm:p-3.5 bg-white border-b border-neutral-200 flex items-center justify-between gap-2 sm:gap-4 shadow-2xs">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {/* Mobile Back Button to Channels/DMs List */}
+            <button
+              type="button"
+              onClick={() => setMobileChatView('list')}
+              className="md:hidden -ml-1 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-neutral-700 hover:text-neutral-950 hover:bg-neutral-100 rounded-xl transition cursor-pointer"
+              title="Back to Channels & Teammates"
+            >
+              <ChevronLeft className="w-5 h-5 text-neutral-800" />
+            </button>
+
             {activeMode === 'channel' ? (
               <>
                 <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-700 shrink-0">
                   <Hash className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
                     <h3 className="text-xs font-bold text-neutral-900 truncate">{currentChannelObj.name}</h3>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-neutral-100 text-neutral-600 font-medium">
+                    <span className="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded bg-neutral-100 text-neutral-600 font-medium">
                       Public Channel
                     </span>
                   </div>
-                  <p className="text-[11px] text-neutral-500 truncate">{currentChannelObj.description}</p>
+                  <p className="text-[11px] text-neutral-500 truncate max-w-[180px] sm:max-w-md">{currentChannelObj.description}</p>
                 </div>
               </>
             ) : activeDmUser ? (
@@ -263,14 +316,14 @@ export const ChatWorkspace: React.FC = () => {
                   />
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
                     <h3 className="text-xs font-bold text-neutral-900 truncate">{activeDmUser.name}</h3>
-                    <span className="text-[10px] px-2 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200 font-medium">
+                    <span className="hidden sm:inline-block text-[10px] px-2 py-0.2 rounded bg-purple-50 text-purple-700 border border-purple-200 font-medium">
                       Direct Message
                     </span>
                   </div>
-                  <p className="text-[11px] text-neutral-500 truncate">
-                    {activeDmUser.designation || activeDmUser.roleLabel} • {activeDmUser.email}
+                  <p className="text-[11px] text-neutral-500 truncate max-w-[180px] sm:max-w-md">
+                    {activeDmUser.designation || activeDmUser.roleLabel}
                   </p>
                 </div>
               </>
@@ -278,15 +331,15 @@ export const ChatWorkspace: React.FC = () => {
           </div>
 
           {/* Search messages in stream */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search conversation..."
-                className="pl-8 pr-7 py-1.5 text-xs bg-neutral-100 hover:bg-white focus:bg-white border border-neutral-200 rounded-lg text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-36 sm:w-48 transition"
+                placeholder="Search..."
+                className="pl-8 pr-7 py-1.5 text-xs bg-neutral-100 hover:bg-white focus:bg-white border border-neutral-200 rounded-xl text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-28 sm:w-44 md:w-48 transition"
               />
               {searchQuery && (
                 <button
@@ -297,7 +350,7 @@ export const ChatWorkspace: React.FC = () => {
                 </button>
               )}
             </div>
-            <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-neutral-500 bg-neutral-100 px-2.5 py-1.5 rounded-lg border border-neutral-200">
+            <div className="hidden lg:flex items-center gap-1.5 text-[11px] text-neutral-500 bg-neutral-100 px-2.5 py-1.5 rounded-lg border border-neutral-200">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span>TLS Audited</span>
             </div>
@@ -432,7 +485,7 @@ export const ChatWorkspace: React.FC = () => {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="p-2 text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100 rounded-xl transition cursor-pointer shrink-0"
+            className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100 rounded-xl transition cursor-pointer shrink-0"
             title="Attach Document or Image (PDF, JPG, PNG)"
           >
             <Paperclip className="w-4 h-4" />
@@ -447,15 +500,15 @@ export const ChatWorkspace: React.FC = () => {
                 ? `Message #${currentChannelObj.name}...`
                 : `Message ${activeDmUser?.name || 'teammate'}...`
             }
-            className="flex-1 px-3.5 py-2 text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
+            className="flex-1 px-3.5 py-2.5 min-h-[44px] text-xs bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition"
           />
 
           <button
             type="submit"
             disabled={!inputText.trim() && !attachment}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+            className="px-4 py-2 min-h-[44px] bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0 active:scale-95"
           >
-            <span>Send</span>
+            <span className="hidden sm:inline">Send</span>
             <Send className="w-3.5 h-3.5" />
           </button>
         </form>

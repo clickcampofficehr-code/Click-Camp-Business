@@ -158,7 +158,65 @@ CREATE INDEX IF NOT EXISTS idx_notices_priority ON public.notices(priority);
 CREATE INDEX IF NOT EXISTS idx_notices_is_pinned ON public.notices(is_pinned);
 
 -- ------------------------------------------------------------------------------
--- 8. Real-time Publications Setup (Push updates instantly to client)
+-- 8. Immutable Webmail Database Integration (Step 3: SOC2 & Immutable Audit)
+-- Emails are saved permanently and are never deleted.
+-- Soft delete via is_hidden_from_user BOOLEAN DEFAULT FALSE.
+-- CRITICAL: No DELETE statement or DELETE policy is ever created for this table.
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.persistent_emails (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  sender_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  sender_name TEXT NOT NULL,
+  sender_email TEXT NOT NULL,
+  recipient_email TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  folder TEXT NOT NULL DEFAULT 'sent',
+  is_starred BOOLEAN NOT NULL DEFAULT FALSE,
+  is_read BOOLEAN NOT NULL DEFAULT TRUE,
+  is_hidden_from_user BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Backwards-compatibility table for standard emails queries
+CREATE TABLE IF NOT EXISTS public.emails (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  recipient TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  is_hidden_from_user BOOLEAN NOT NULL DEFAULT FALSE,
+  timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_emails_sender ON public.persistent_emails(sender_email);
+CREATE INDEX IF NOT EXISTS idx_emails_recipient ON public.persistent_emails(recipient_email);
+CREATE INDEX IF NOT EXISTS idx_emails_timestamp ON public.persistent_emails(timestamp DESC);
+
+-- ------------------------------------------------------------------------------
+-- 9. Secure Shift Logs Table (Step 4: Shift-End Logout & Data Persistence)
+-- Records shift start/end timestamps for HR & payroll.
+-- Only session tokens are destroyed on logout; shift logs remain permanent.
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.shift_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  session_id TEXT NOT NULL,
+  start_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  end_time TIMESTAMPTZ,
+  duration_minutes INTEGER DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'active',
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_shift_logs_user_id ON public.shift_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_shift_logs_session_id ON public.shift_logs(session_id);
+
+-- ------------------------------------------------------------------------------
+-- 10. Real-time Publications Setup (Push updates instantly to client)
 -- ------------------------------------------------------------------------------
 -- Enable replication on all core interactive tables
 ALTER TABLE public.tasks REPLICA IDENTITY FULL;
@@ -167,6 +225,8 @@ ALTER TABLE public.messages_chat REPLICA IDENTITY FULL;
 ALTER TABLE public.profiles REPLICA IDENTITY FULL;
 ALTER TABLE public.audit_logs REPLICA IDENTITY FULL;
 ALTER TABLE public.notices REPLICA IDENTITY FULL;
+ALTER TABLE public.persistent_emails REPLICA IDENTITY FULL;
+ALTER TABLE public.shift_logs REPLICA IDENTITY FULL;
 
 -- Add tables to the Supabase Realtime publication
 BEGIN;
@@ -177,7 +237,9 @@ BEGIN;
     public.messages_chat, 
     public.profiles, 
     public.audit_logs,
-    public.notices;
+    public.notices,
+    public.persistent_emails,
+    public.shift_logs;
 COMMIT;
 
 -- ------------------------------------------------------------------------------
@@ -329,6 +391,57 @@ CREATE POLICY "Admins can delete company notices"
   USING (public.is_super_admin(auth.uid()) OR EXISTS (
     SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'super_admin'
   ));
+
+-- ------------------------------------------------------------------------------
+-- RLS: Immutable Persistent Webmail (Step 3: Permanent Archival - No DELETE)
+-- ------------------------------------------------------------------------------
+ALTER TABLE public.persistent_emails ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.emails ENABLE ROW LEVEL SECURITY;
+
+-- Users can view emails they sent, received, or Super Admin can audit
+CREATE POLICY "Users view own sent or received emails"
+  ON public.persistent_emails FOR SELECT
+  TO authenticated
+  USING (
+    auth.uid() = user_id OR 
+    auth.uid() = sender_id OR 
+    recipient_email = (SELECT email FROM public.profiles WHERE id = auth.uid()) OR
+    public.is_super_admin(auth.uid())
+  );
+
+-- Users can insert/send webmail
+CREATE POLICY "Users can dispatch webmail"
+  ON public.persistent_emails FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+-- Soft delete / star / read update only (NO DELETE POLICY EXISTS)
+CREATE POLICY "Users can update star read or soft delete flag"
+  ON public.persistent_emails FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id OR auth.uid() = sender_id OR public.is_super_admin(auth.uid()))
+  WITH CHECK (auth.uid() = user_id OR auth.uid() = sender_id OR public.is_super_admin(auth.uid()));
+
+-- ------------------------------------------------------------------------------
+-- RLS: Secure Shift Logs (Step 4: Shift End & Data Persistence)
+-- ------------------------------------------------------------------------------
+ALTER TABLE public.shift_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users view own shift logs"
+  ON public.shift_logs FOR SELECT
+  TO authenticated
+  USING (auth.uid() = user_id OR public.is_super_admin(auth.uid()));
+
+CREATE POLICY "Users create shift logs"
+  ON public.shift_logs FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users update active shift log"
+  ON public.shift_logs FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id OR public.is_super_admin(auth.uid()))
+  WITH CHECK (auth.uid() = user_id OR public.is_super_admin(auth.uid()));
 
 -- ------------------------------------------------------------------------------
 -- 10. Storage Buckets Configuration & Storage Policies

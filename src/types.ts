@@ -260,6 +260,7 @@ export interface AuditLog {
   userId: string;
   userName: string;
   userRole: string;
+  userEmail?: string;
   action:
     | 'UPLOAD'
     | 'VIEW'
@@ -272,6 +273,7 @@ export interface AuditLog {
     | 'LOCK_SCREEN'
     | 'NUDGE'
     | 'SECURITY_OVERRIDE'
+    | 'SECURITY_LOCK'
     | 'PROFILE_LOCK'
     | 'HUB_LOCK'
     | 'NOTICE_POST'
@@ -311,6 +313,35 @@ export interface WebmailItem {
   date: string;
   isRead: boolean;
   isStarred: boolean;
+  isHiddenFromUser?: boolean; // Soft delete flag: emails are NEVER deleted from production database
+}
+
+export interface ShiftLog {
+  id: string;
+  userId: string;
+  sessionId: string;
+  startTime: string;
+  endTime?: string | null;
+  durationMinutes?: number;
+  status: 'active' | 'completed';
+  notes?: string;
+  createdAt: string;
+}
+
+export interface PersistentEmail {
+  id: string;
+  userId?: string;
+  senderId?: string;
+  senderName: string;
+  senderEmail: string;
+  recipientEmail: string;
+  subject: string;
+  body: string;
+  folder: 'inbox' | 'sent' | 'starred' | 'trash';
+  isStarred: boolean;
+  isRead: boolean;
+  isHiddenFromUser: boolean;
+  timestamp: string;
 }
 
 export interface MeetingMom {

@@ -46,6 +46,7 @@ import { DocumentDossierModal } from '../common/DocumentDossierModal';
 import { EmployeeManagementPanel } from './EmployeeManagementPanel';
 import { CompanyNoticeBoard } from '../common/CompanyNoticeBoard';
 import { EmployeeInformationPanel } from './EmployeeInformationPanel';
+import { ProductionLaunchHub } from './ProductionLaunchHub';
 
 export const AdminWorkspace: React.FC = () => {
   const {
@@ -72,8 +73,8 @@ export const AdminWorkspace: React.FC = () => {
   } = useWorkspace();
 
   const [activeTab, setActiveTab] = useState<
-    'employees' | 'employee_info' | 'onboarding' | 'notice_board' | 'chat_audit' | 'audit_logs' | 'analytics' | 'system_settings'
-  >('employees');
+    'employees' | 'employee_info' | 'onboarding' | 'notice_board' | 'chat_audit' | 'audit_logs' | 'analytics' | 'system_settings' | 'launch_blueprint'
+  >('launch_blueprint');
 
   // Employee Management State
   const [empSearch, setEmpSearch] = useState('');
@@ -174,7 +175,7 @@ export const AdminWorkspace: React.FC = () => {
 
     const corporateEmail = newEmpData.emailPrefix.includes('@')
       ? newEmpData.emailPrefix.trim()
-      : `${newEmpData.emailPrefix.trim().toLowerCase()}@clickcamp.tech`;
+      : `${newEmpData.emailPrefix.trim().toLowerCase()}@clickcamp.site`;
 
     const created = addEmployee({
       name: newEmpData.name.trim(),
@@ -291,6 +292,7 @@ Total Messages Audited: ${filteredAuditMessages.length}
 
           <div className="flex items-center gap-1 bg-neutral-800/80 p-1 rounded-xl border border-neutral-700 overflow-x-auto max-w-full">
           {[
+            { id: 'launch_blueprint', label: '🚀 Production Blueprint' },
             { id: 'employees', label: 'Employee Management' },
             { id: 'employee_info', label: 'Employee Information' },
             { id: 'onboarding', label: 'Onboarding & KYC' },
@@ -1029,6 +1031,11 @@ Total Messages Audited: ${filteredAuditMessages.length}
       )}
 
       {/* ========================================================================= */}
+      {/* TAB 8: PRODUCTION LAUNCH BLUEPRINT HUB (5-Step Architectural Transition) */}
+      {/* ========================================================================= */}
+      {activeTab === 'launch_blueprint' && <ProductionLaunchHub />}
+
+      {/* ========================================================================= */}
       {/* MODAL: ADD NEW EMPLOYEE                                                   */}
       {/* ========================================================================= */}
       {isAddModalOpen && (
@@ -1072,7 +1079,7 @@ Total Messages Audited: ${filteredAuditMessages.length}
                     className="flex-1 px-3 py-2 border border-neutral-300 rounded-l-xl focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
                   <span className="px-3 py-2 bg-neutral-100 border border-l-0 border-neutral-300 rounded-r-xl font-mono text-neutral-600">
-                    @clickcamp.tech
+                    @clickcamp.site
                   </span>
                 </div>
               </div>

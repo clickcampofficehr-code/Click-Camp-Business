@@ -154,7 +154,7 @@ export const EmployeeManagementPanel: React.FC = () => {
 
     const email = newEmp.emailPrefix.includes('@')
       ? newEmp.emailPrefix.trim().toLowerCase()
-      : `${newEmp.emailPrefix.trim().toLowerCase()}@clickcamp.tech`;
+      : `${newEmp.emailPrefix.trim().toLowerCase()}@clickcamp.site`;
 
     const finalPassword = newEmp.autoGeneratePassword
       ? generateStrongPassword()
@@ -667,7 +667,7 @@ export const EmployeeManagementPanel: React.FC = () => {
                     className="flex-1 px-3 py-2 border border-neutral-300 rounded-l-xl focus:outline-none focus:ring-1 focus:ring-neutral-900"
                   />
                   <span className="px-3 py-2 bg-neutral-100 border border-l-0 border-neutral-300 rounded-r-xl font-mono text-neutral-600">
-                    @clickcamp.tech
+                    @clickcamp.site
                   </span>
                 </div>
               </div>

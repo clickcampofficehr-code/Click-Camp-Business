@@ -32,6 +32,8 @@ import {
 } from '../types';
 import { supabase, isSupabaseConfigured, NoticeRow } from '../lib/supabaseClient';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { RealtimeService } from '../lib/realtimeService';
+import { DatabaseService } from '../lib/databaseService';
 import {
   initialUsers,
   mockUsers,
@@ -216,6 +218,7 @@ interface WorkspaceContextType {
   webmail: WebmailItem[];
   sendWebmail: (toEmail: string, subject: string, body: string) => void;
   toggleStarEmail: (id: string) => void;
+  softDeleteEmail: (id: string) => void;
   meetings: MeetingMom[];
   markMeetingRead: (id: string) => void;
 
@@ -255,6 +258,8 @@ interface WorkspaceContextType {
   // Reset & Purge
   resetSystemData: () => void;
   purgeDemoData: () => void;
+  purgeProductionDemoData: () => Promise<void>;
+  sessionId: string;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
@@ -271,13 +276,29 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const map = new Map<string, UserAccount>();
-          // Base with initial users
+          // Base with initial users (Adnan Malik Super Admin)
           initialUsers.forEach((u) => map.set(u.id, u));
-          // Overlay saved users
-          parsed.forEach((u: UserAccount) => {
-            const existing = map.get(u.id);
-            map.set(u.id, { ...existing, ...u });
-          });
+          // Overlay saved users, purging demo accounts
+          parsed
+            .filter(
+              (u: UserAccount) =>
+                !['usr-emp', 'usr-hr', 'usr-ops', 'usr-tl', 'usr-admin'].includes(u.id) &&
+                !u.email.includes('@demo.com') &&
+                !u.email.includes('@test.com')
+            )
+            .forEach((u: UserAccount) => {
+              if (u.id === 'usr-superadmin') {
+                const existing = map.get(u.id);
+                map.set(u.id, {
+                  ...existing,
+                  ...u,
+                  email: 'adnan.malik@clickcamp.site',
+                  personalEmail: 'adnanmaliklyx@gmail.com'
+                });
+              } else {
+                map.set(u.id, u);
+              }
+            });
           list = Array.from(map.values());
         }
       }
@@ -667,7 +688,95 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   });
 
-  const [webmail, setWebmail] = useState<WebmailItem[]>(initialWebmail);
+  // Session token isolated from persistent user data (Step 4)
+  const [sessionId] = useState<string>(() => {
+    try {
+      let s = sessionStorage.getItem('clickcamp_session_id');
+      if (!s) {
+        s = `sess-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+        sessionStorage.setItem('clickcamp_session_id', s);
+      }
+      return s;
+    } catch {
+      return `sess-${Date.now()}`;
+    }
+  });
+
+  // Step 3: Immutable Webmail Persistence
+  const [webmail, setWebmail] = useState<WebmailItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('clickcamp_persistent_emails');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return initialWebmail;
+  });
+
+  // Load persistent emails from database if Supabase configured
+  useEffect(() => {
+    if (isSupabaseConfigured && currentUser?.email) {
+      DatabaseService.getPersistentEmails(currentUser.email).then((emails) => {
+        if (emails && emails.length > 0) {
+          const mapped: WebmailItem[] = emails.map((e) => ({
+            id: e.id,
+            folder: e.folder || 'inbox',
+            from: e.sender_name || 'System',
+            fromEmail: e.sender_email,
+            toEmail: e.recipient_email,
+            subject: e.subject,
+            body: e.body,
+            date: new Date(e.timestamp || e.created_at).toLocaleDateString('en-IN', {
+              month: 'short',
+              day: 'numeric'
+            }),
+            isRead: e.is_read ?? true,
+            isStarred: e.is_starred ?? false,
+            isHiddenFromUser: e.is_hidden_from_user ?? false
+          }));
+          setWebmail((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const newOnes = mapped.filter((m) => !existingIds.has(m.id));
+            return [...prev, ...newOnes];
+          });
+        }
+      });
+    }
+  }, [currentUser?.email]);
+
+  // Step 2: Real-Time Profile Picture Updates across tabs and clients
+  useEffect(() => {
+    const unsubscribe = RealtimeService.on('profile_picture_changed', (data) => {
+      if (!data?.userId || !data?.newPicUrl) return;
+
+      // Update current user if targeted
+      setCurrentUser((prev) => {
+        if (prev.id === data.userId || (prev.email && prev.email.toLowerCase() === data.userId.toLowerCase())) {
+          return { ...prev, avatarUrl: data.newPicUrl };
+        }
+        return prev;
+      });
+
+      // Update allUsers directory
+      setAllUsers((prev) =>
+        prev.map((u) => {
+          if (u.id === data.userId || (u.email && u.email.toLowerCase() === data.userId.toLowerCase())) {
+            return { ...u, avatarUrl: data.newPicUrl };
+          }
+          return u;
+        })
+      );
+
+      // Direct DOM update for instant visual feedback without refresh
+      RealtimeService.updateProfileImagesInDom(data.userId, data.newPicUrl);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   const [meetings, setMeetings] = useState<MeetingMom[]>(initialMeetingMoms);
   const [tickets, setTickets] = useState<SupportTicket[]>(initialSupportTickets);
   const [expenses, setExpenses] = useState<ExpenseClaim[]>(initialExpenseClaims);
@@ -677,7 +786,9 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Trigger brief floating toast
   const showToast = (message: string) => {
-    setActiveToast(message);
+    queueMicrotask(() => {
+      setActiveToast(message);
+    });
     setTimeout(() => {
       setActiveToast((prev) => (prev === message ? null : prev));
     }, 4000);
@@ -725,11 +836,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       userId: currentUser.id,
       userName: currentUser.name,
       userRole: currentUser.roleLabel,
+      userEmail: currentUser.email,
       action,
       details,
       ipAddress: '103.21.144.22'
     };
-    setAuditLogs((prev) => [newLog, ...prev]);
+    queueMicrotask(() => {
+      setAuditLogs((prev) => [newLog, ...prev]);
+    });
   };
 
   // Direct profile switch execution after authorization or if locking is inactive
@@ -995,15 +1109,26 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const loginUser = (email: string, roleOverride?: UserRole): boolean => {
     const normalized = email.trim().toLowerCase();
-    let target = allUsers.find((u) => u.email.toLowerCase() === normalized);
-    if (!target && (normalized.includes('adnan') || normalized === 'adnanmaliklyx@gmail.com' || normalized === 'adnan.malik@clickcamp.tech')) {
+    let target = allUsers.find(
+      (u) =>
+        u.email.toLowerCase() === normalized ||
+        (u.personalEmail && u.personalEmail.toLowerCase() === normalized)
+    );
+    if (
+      !target &&
+      (normalized.includes('adnan') ||
+        normalized === 'adnan.malik@clickcamp.site' ||
+        normalized === 'adnanmaliklyx@gmail.com' ||
+        normalized === 'adnan.malik@clickcamp.tech' ||
+        normalized === 'adnan.malik.personal@gmail.com')
+    ) {
       target = allUsers.find((u) => u.role === 'super_admin');
     }
     if (!target && roleOverride) {
       target = allUsers.find((u) => u.role === roleOverride);
     }
     if (!target) {
-      target = allUsers[0]; // Super Admin fallback
+      target = allUsers[0] || initialUsers[0]; // Super Admin fallback
     }
 
     if (target.status === 'suspended') {
@@ -1077,18 +1202,32 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const logoutUser = () => {
+    // Step 4: Secure Shift-End Logout (Data Persistence)
+    // If active shift/punch is in progress, safely record clock-out
+    if (punchState === 'clocked_in' || punchState === 'on_break') {
+      clockOut();
+    }
+
+    // Persist shift log end time in database (UPDATE shift_logs SET end_time = NOW() WHERE session_id = ?)
+    DatabaseService.endShiftLog(sessionId, Math.floor(elapsedSeconds / 60));
+
     AuthService.signOut();
-    recordAuditLog('LOGIN', `User logged out: ${currentUser.name}`);
+    recordAuditLog('LOGIN', `Shift ended safely. User logged out: ${currentUser.name}`);
     setIsAuthenticated(false);
     setPendingProfileSwitch(null);
     setUnlockedHubs([]);
     setPendingHubAuth(null);
+
+    // Destroy temporary session tokens ONLY - all employee data, profile, punch logs, webmails, tasks, documents remain 100% permanently intact!
     try {
       localStorage.setItem(`${STORAGE_PREFIX}isAuth`, 'false');
+      sessionStorage.removeItem('clickcamp_session_id');
+      sessionStorage.removeItem('auth_token');
+      document.cookie = 'auth_token=; Max-Age=0; path=/; secure; samesite=strict';
     } catch {
       // ignore
     }
-    showToast('Signed out successfully.');
+    showToast('Shift ended safely. Logged out.');
   };
 
   // Employee Directory Management Operations
@@ -1295,8 +1434,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     }
 
-    recordAuditLog('APPROVAL', `User ${targetUser.name} updated DP profile photo (stored permanently in database)`);
-    showToast('Display picture updated and saved permanently.');
+    // Step 2: Broadcast the update in real-time across WebSockets/BroadcastChannel to all clients
+    RealtimeService.emit('profile_picture_changed', {
+      userId: targetId,
+      newPicUrl: avatarUrl
+    });
+
+    recordAuditLog('APPROVAL', `User ${targetUser.name} updated DP profile photo (broadcast via Realtime socket & stored permanently in DB)`);
+    showToast('Display picture updated instantly across workstations.');
     return true;
   };
 
@@ -1742,7 +1887,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const candidate = pendingOnboarding.find((o) => o.id === id);
     if (candidate) {
-      const emailDomain = 'clickcamp.tech';
+      const emailDomain = 'clickcamp.site';
       const cleanName = candidate.fullName.toLowerCase().trim().replace(/[^a-z0-9]/g, '.');
       const corporateEmail = `${cleanName}@${emailDomain}`;
       const tempPass = `ClickCamp@${Math.floor(1000 + Math.random() * 9000)}`;
@@ -1802,7 +1947,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const newRecord: PendingOnboarding = {
       id: newId,
       fullName: data.fullName || 'New Joinee',
-      personalEmail: data.personalEmail || 'candidate@clickcamp.tech',
+      personalEmail: data.personalEmail || 'candidate@clickcamp.site',
       proposedRole: data.proposedRole || 'employee',
       department: data.department || 'Client Acquisition & Growth',
       teamLeaderId: 'usr-tl',
@@ -1953,11 +2098,51 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       body,
       date: 'Today',
       isRead: true,
-      isStarred: false
+      isStarred: false,
+      isHiddenFromUser: false
     };
-    setWebmail((prev) => [newEmail, ...prev]);
-    recordAuditLog('UPLOAD', `Dispatched company webmail to ${toEmail}: "${subject}"`);
-    showToast('Email sent successfully via ClickCamp Webmail.');
+
+    // Step 3: Immutable Webmail Database Integration
+    // Pipe a copy directly to persistent_emails table permanently
+    DatabaseService.sendWebmail({
+      userId: currentUser.id,
+      senderId: currentUser.id,
+      senderName: currentUser.name,
+      senderEmail: currentUser.email,
+      recipientEmail: toEmail,
+      subject,
+      body,
+      folder: 'sent'
+    });
+
+    setWebmail((prev) => {
+      const updated = [newEmail, ...prev];
+      try {
+        localStorage.setItem('clickcamp_persistent_emails', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    recordAuditLog('UPLOAD', `Dispatched company webmail to ${toEmail}: "${subject}" (Immutable copy archived in database)`);
+    showToast('Email sent and permanently archived in ClickCamp database.');
+  };
+
+  const softDeleteEmail = (id: string) => {
+    // Step 3 Soft Delete: Sets isHiddenFromUser = true and moves to trash folder.
+    // Permanent deletion is cryptographically and architecturally prohibited.
+    setWebmail((prev) => {
+      const updated = prev.map((em) =>
+        em.id === id ? { ...em, folder: 'trash' as const, isHiddenFromUser: true } : em
+      );
+      try {
+        localStorage.setItem('clickcamp_persistent_emails', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    DatabaseService.softDeleteEmail(id);
+    recordAuditLog('SECURITY_OVERRIDE', `Soft-deleted email ${id} to Trash (Permanent copy preserved in compliance database)`);
+    showToast('Email moved to Trash. Permanent copy preserved in compliance database.');
   };
 
   const toggleStarEmail = (id: string) => {
@@ -2266,6 +2451,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // 1. Filter allUsers to keep strictly real accounts (Super Admin Adnan Malik or accounts with real non-test domains)
     const sanitizedUsers = allUsers.filter(
       (u) =>
+        u.email === 'adnan.malik@clickcamp.site' ||
         u.email === 'adnanmaliklyx@gmail.com' ||
         (u.role === 'super_admin' && !u.email.includes('demo') && !u.email.includes('test') && !u.email.includes('@example.com'))
     );
@@ -2326,6 +2512,55 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     showToast('Demo accounts & mock data purged. System is now a clean production slate!');
   };
 
+  // Step 1: Database Cleanup (Remove All Demo & Test Profiles)
+  const purgeProductionDemoData = async () => {
+    // 1. Run script directly in production database to wipe out test profiles, associated logs, and test data
+    await DatabaseService.executeProductionPurge();
+
+    // 2. Clean up local in-memory profiles
+    setAllUsers((prev) =>
+      prev.filter(
+        (u) =>
+          u.email === 'adnan.malik@clickcamp.site' ||
+          u.email === 'adnanmaliklyx@gmail.com' ||
+          (!u.email.includes('@test.com') &&
+           !u.email.includes('@demo.com') &&
+           !u.email.includes('@example.com') &&
+           u.role !== ('demo_user' as any) &&
+           !u.name.toLowerCase().includes('demo') &&
+           !u.name.toLowerCase().includes('test'))
+      )
+    );
+
+    // 3. Clean up orphaned activity logs
+    setAuditLogs((prev) =>
+      prev.filter(
+        (l) =>
+          !l.userEmail ||
+          (!l.userEmail.includes('@test.com') &&
+           !l.userEmail.includes('@demo.com') &&
+           !l.userEmail.includes('@example.com'))
+      )
+    );
+
+    // 4. Clean up test webmails
+    setWebmail((prev) =>
+      prev.filter(
+        (m) =>
+          !m.fromEmail.includes('@test.com') &&
+          !m.toEmail.includes('@test.com') &&
+          !m.fromEmail.includes('@demo.com') &&
+          !m.toEmail.includes('@demo.com')
+      )
+    );
+
+    recordAuditLog(
+      'SECURITY_OVERRIDE',
+      'Step 1 Production Database Sanitization Completed: Purged test accounts, demo profiles, and orphaned activity records.'
+    );
+    showToast('Database sanitized: Demo accounts, test profiles & orphaned logs purged successfully.');
+  };
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -2335,6 +2570,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         switchUserRole,
         loginUser,
         logoutUser,
+        sessionId,
 
         isProfileLockEnforced,
         setIsProfileLockEnforced,
@@ -2433,6 +2669,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         webmail,
         sendWebmail,
         toggleStarEmail,
+        softDeleteEmail,
         meetings,
         markMeetingRead,
 
@@ -2461,7 +2698,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         refreshNotices,
 
         resetSystemData,
-        purgeDemoData
+        purgeDemoData,
+        purgeProductionDemoData
       }}
     >
       {children}

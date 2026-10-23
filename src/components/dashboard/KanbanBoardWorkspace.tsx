@@ -80,6 +80,7 @@ export const KanbanBoardWorkspace: React.FC = () => {
   });
 
   // Tasks state
+  const [mobileColumnFilter, setMobileColumnFilter] = useState<string>('all');
   const [tasks, setTasks] = useState<KanbanTask[]>(() => {
     try {
       const saved = localStorage.getItem(`${KANBAN_STORAGE_PREFIX}tasks`);
@@ -162,28 +163,30 @@ export const KanbanBoardWorkspace: React.FC = () => {
   const stageOrder: KanbanTaskStatus[] = ['backlog', 'todo', 'in_progress', 'in_review', 'done'];
 
   const moveTask = (taskId: string, direction: 'next' | 'prev') => {
+    const targetTask = tasks.find((t) => t.id === taskId);
+    if (!targetTask) return;
+
+    const currentIndex = stageOrder.indexOf(targetTask.status);
+    const nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
+    if (nextIndex < 0 || nextIndex >= stageOrder.length) return;
+
+    const newStatus = stageOrder[nextIndex];
+    const isDone = newStatus === 'done';
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id !== taskId) return t;
-        const currentIndex = stageOrder.indexOf(t.status);
-        const nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
-        if (nextIndex < 0 || nextIndex >= stageOrder.length) return t;
-
-        const newStatus = stageOrder[nextIndex];
-        const isDone = newStatus === 'done';
-        const updated = {
+        return {
           ...t,
           status: newStatus,
           completedAt: isDone ? new Date().toISOString().split('T')[0] : t.completedAt
         };
-
-        recordAuditLog(
-          'APPROVAL',
-          `Kanban Task ${t.code} shifted from ${t.status} to ${newStatus} by ${currentUser.name}`
-        );
-
-        return updated;
       })
+    );
+
+    recordAuditLog(
+      'APPROVAL',
+      `Kanban Task ${targetTask.code} shifted from ${targetTask.status} to ${newStatus} by ${currentUser.name}`
     );
   };
 
@@ -469,17 +472,55 @@ export const KanbanBoardWorkspace: React.FC = () => {
             </div>
           </div>
 
+          {/* Mobile Column Carousel Tabs */}
+          <div className="md:hidden flex items-center gap-1.5 overflow-x-auto no-scrollbar p-1.5 bg-neutral-100 rounded-2xl mb-3">
+            <button
+              type="button"
+              onClick={() => setMobileColumnFilter('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer min-h-[38px] ${
+                mobileColumnFilter === 'all'
+                  ? 'bg-neutral-900 text-white shadow-xs'
+                  : 'text-neutral-600 hover:text-neutral-900 bg-white border border-neutral-200'
+              }`}
+            >
+              All Columns ({filteredTasks.length})
+            </button>
+            {columns.map((c) => {
+              const count = filteredTasks.filter((t) => t.status === c.id).length;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setMobileColumnFilter(c.id)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer min-h-[38px] flex items-center gap-1.5 ${
+                    mobileColumnFilter === c.id
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-neutral-600 hover:text-neutral-900 bg-white border border-neutral-200'
+                  }`}
+                >
+                  <span>{c.title}</span>
+                  <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-neutral-100 text-neutral-800">
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
           {/* Kanban Columns Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3.5 items-start">
             {columns.map((col) => {
               const colTasks = filteredTasks.filter((t) => t.status === col.id);
               const totalColPoints = colTasks.reduce((sum, t) => sum + (t.storyPoints || 0), 0);
               const isOverWip = col.wipLimit !== undefined && colTasks.length > col.wipLimit;
+              const isHiddenOnMobile = mobileColumnFilter !== 'all' && mobileColumnFilter !== col.id;
 
               return (
                 <div
                   key={col.id}
-                  className={`rounded-2xl border bg-neutral-50/70 p-3 flex flex-col min-h-[580px] shadow-xs ${
+                  className={`rounded-2xl border bg-neutral-50/70 p-3 flex-col min-h-0 md:min-h-[580px] shadow-xs ${
+                    isHiddenOnMobile ? 'hidden md:flex' : 'flex'
+                  } ${
                     isOverWip ? 'border-amber-300 ring-1 ring-amber-300 bg-amber-50/20' : 'border-neutral-200'
                   }`}
                 >

@@ -204,7 +204,7 @@ Click Camp Business and Technology Services Limited
 4. Aadhaar Number: ${formData.aadhaarNumber ? 'XXXX-XXXX-' + formData.aadhaarNumber.slice(-4) : 'Pending Verification'}
 5. Universal Account Number (UAN): ${modalFields.previousUan || 'Not Applicable / First-time Member'}
 6. Previous PF Account Number: ${modalFields.hasPreviousPf === 'yes' ? 'Declared' : 'None'}
-7. Email Address: ${formData.personalEmail || 'candidate@clickcamp.tech'}
+7. Email Address: ${formData.personalEmail || 'candidate@clickcamp.site'}
 
 DECLARATION:
 "The purpose of this form is to facilitate your employment with Click Camp Business and Technology Services Limited.
@@ -261,7 +261,7 @@ The purpose of this form is to facilitate your employment with Click camp Busine
 
 INSURED PERSON PARTICULARS:
 - Insured Person Name: ${formData.fullName || 'Candidate'}
-- Personal Email: ${formData.personalEmail || 'candidate@clickcamp.tech'}
+- Personal Email: ${formData.personalEmail || 'candidate@clickcamp.site'}
 - Aadhaar UIDAI: ${formData.aadhaarNumber ? '●●●● ●●●● ' + formData.aadhaarNumber.slice(-4) : 'Pending'}
 - Bank Account for Cash Benefits: ${formData.bankName} (${formData.accountNumber})
 - IFSC Code: ${formData.ifscCode}
@@ -431,17 +431,8 @@ Date: ${new Date().toLocaleDateString('en-IN')}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          {!isAdminView ? (
-            <button
-              type="button"
-              onClick={handleOpenAdminAuth}
-              className="px-3.5 py-2 text-xs font-bold bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl transition cursor-pointer shadow-xs border border-neutral-800 hover:border-emerald-500/50 flex items-center gap-2 group"
-            >
-              <Shield className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
-              <span>Switch to Admin Review View</span>
-            </button>
-          ) : (
+        {isAdminView && (
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => setIsAdminView(false)}
@@ -450,8 +441,8 @@ Date: ${new Date().toLocaleDateString('en-IN')}
               <Shield className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
               <span>Switch to Employee View</span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* VIEW 1: EMPLOYEE ONBOARDING FORM */}

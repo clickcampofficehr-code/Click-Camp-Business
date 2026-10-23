@@ -86,7 +86,7 @@ export const SupportFinanceWorkspace: React.FC = () => {
         </div>
 
         {/* Section Tabs */}
-        <div className="flex items-center gap-1 bg-neutral-800/80 p-1 rounded-xl border border-neutral-700">
+        <div className="flex items-center gap-1 bg-neutral-800/80 p-1 rounded-xl border border-neutral-700 overflow-x-auto no-scrollbar w-full sm:w-auto">
           {[
             { id: 'tickets', label: 'Support Helpdesk' },
             { id: 'expenses', label: 'Expense Claims' },
@@ -95,7 +95,7 @@ export const SupportFinanceWorkspace: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActiveSection(tab.id as typeof activeSection)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer min-h-[38px] flex-1 sm:flex-initial text-center ${
                 activeSection === tab.id ? 'bg-amber-500 text-neutral-950 font-bold shadow-xs' : 'text-neutral-300 hover:text-white'
               }`}
             >

@@ -13,13 +13,15 @@ import {
   CheckSquare,
   Sparkles,
   Link2,
-  Share2
+  Share2,
+  ChevronLeft
 } from 'lucide-react';
 
 export const MeetingsWorkspace: React.FC = () => {
   const { meetings, markMeetingRead, currentUser } = useWorkspace();
 
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingMom | null>(meetings[0] || null);
+  const [mobileView, setMobileView] = useState<'list' | 'details'>('list');
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [quickMeetUrl, setQuickMeetUrl] = useState<string | null>(null);
 
@@ -103,7 +105,11 @@ export const MeetingsWorkspace: React.FC = () => {
       {/* Main 2-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Meeting List */}
-        <div className="bg-white rounded-2xl p-4 border border-neutral-200 shadow-xs space-y-3">
+        <div
+          className={`bg-white rounded-2xl p-4 border border-neutral-200 shadow-xs space-y-3 ${
+            mobileView === 'details' ? 'hidden lg:block' : 'block'
+          }`}
+        >
           <div className="flex items-center justify-between pb-2 border-b border-neutral-100">
             <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
               Synchronizations & Records ({meetings.length})
@@ -117,8 +123,11 @@ export const MeetingsWorkspace: React.FC = () => {
               return (
                 <div
                   key={m.id}
-                  onClick={() => setSelectedMeeting(m)}
-                  className={`p-3.5 rounded-xl border transition cursor-pointer ${
+                  onClick={() => {
+                    setSelectedMeeting(m);
+                    setMobileView('details');
+                  }}
+                  className={`p-3.5 rounded-xl border transition cursor-pointer min-h-[56px] ${
                     isSelected
                       ? 'bg-neutral-900 text-white border-neutral-900 shadow-xs'
                       : 'bg-neutral-50/70 hover:bg-neutral-100/70 text-neutral-800 border-neutral-200'
@@ -148,9 +157,22 @@ export const MeetingsWorkspace: React.FC = () => {
         </div>
 
         {/* Right: Selected Meeting Minutes (MOM) Details */}
-        <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-neutral-200 shadow-xs space-y-5">
+        <div
+          className={`lg:col-span-2 bg-white rounded-2xl p-4 sm:p-6 border border-neutral-200 shadow-xs space-y-5 ${
+            mobileView === 'list' ? 'hidden lg:block' : 'block'
+          }`}
+        >
           {selectedMeeting ? (
             <div>
+              {/* Mobile Back button */}
+              <button
+                onClick={() => setMobileView('list')}
+                className="lg:hidden min-h-[44px] px-3.5 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition mb-3 shadow-2xs self-start"
+              >
+                <ChevronLeft className="w-4 h-4 text-neutral-800" />
+                <span>Back to All Meetings</span>
+              </button>
+
               {/* Title & Metadata */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-neutral-100">
                 <div>

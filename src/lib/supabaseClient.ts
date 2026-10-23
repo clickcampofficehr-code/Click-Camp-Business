@@ -114,6 +114,35 @@ export interface NoticeRow {
   updated_at?: string | null;
 }
 
+export interface PersistentEmailRow {
+  id: string;
+  user_id?: string | null;
+  sender_id?: string | null;
+  sender_name: string;
+  sender_email: string;
+  recipient_email: string;
+  subject: string;
+  body: string;
+  folder: 'inbox' | 'sent' | 'starred' | 'trash';
+  is_starred: boolean;
+  is_read: boolean;
+  is_hidden_from_user: boolean;
+  created_at: string;
+  timestamp: string;
+}
+
+export interface ShiftLogRow {
+  id: string;
+  user_id: string;
+  session_id: string;
+  start_time: string;
+  end_time?: string | null;
+  duration_minutes?: number | null;
+  status: 'active' | 'completed';
+  notes?: string | null;
+  created_at: string;
+}
+
 export interface DatabaseSchema {
   public: {
     Tables: {
@@ -146,6 +175,22 @@ export interface DatabaseSchema {
         Row: NoticeRow;
         Insert: Omit<NoticeRow, 'id' | 'created_at'> & { id?: string };
         Update: Partial<NoticeRow>;
+      };
+      persistent_emails: {
+        Row: PersistentEmailRow;
+        Insert: Partial<PersistentEmailRow> & {
+          sender_name: string;
+          sender_email: string;
+          recipient_email: string;
+          subject: string;
+          body: string;
+        };
+        Update: Partial<PersistentEmailRow>;
+      };
+      shift_logs: {
+        Row: ShiftLogRow;
+        Insert: Partial<ShiftLogRow> & { user_id: string; session_id: string };
+        Update: Partial<ShiftLogRow>;
       };
     };
   };

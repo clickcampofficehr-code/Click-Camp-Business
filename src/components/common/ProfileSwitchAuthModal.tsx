@@ -121,7 +121,8 @@ export const ProfileSwitchAuthModal: React.FC = () => {
                     Current
                   </span>
                 </div>
-                <p className="text-[11px] text-neutral-500 truncate">{currentUser.roleLabel}</p>
+                <p className="text-[11px] text-emerald-700 font-medium truncate">Dept: {currentUser.department || 'Staff'}</p>
+                <p className="text-[10px] text-neutral-500 truncate">{currentUser.roleLabel}</p>
               </div>
             </div>
 
@@ -144,7 +145,10 @@ export const ProfileSwitchAuthModal: React.FC = () => {
                     {targetUser ? targetUser.name : targetRole.toUpperCase()}
                   </span>
                 </div>
-                <p className="text-[11px] text-neutral-500 truncate">
+                <p className="text-[11px] text-indigo-700 font-medium truncate">
+                  Dept: {targetUser?.department || targetRole.toUpperCase()}
+                </p>
+                <p className="text-[10px] text-neutral-500 truncate">
                   {targetUser ? targetUser.roleLabel : targetRole.replace('_', ' ').toUpperCase()}
                 </p>
               </div>

@@ -1051,17 +1051,27 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     showToast(`Active profile: ${targetUser.roleLabel} (${targetUser.name})`);
 
-    // Select appropriate tab if current tab is restricted
-    if (targetUser.role === 'super_admin' || targetUser.role === 'admin') {
+    // Select appropriate tab based on Department & Role
+    if (
+      targetUser.email === 'adnan.malik@clickcamp.site' ||
+      targetUser.personalEmail === 'adnanmaliklyx@gmail.com' ||
+      targetUser.role === 'super_admin'
+    ) {
       setActiveTab('dashboard');
-    } else if (targetUser.role === 'ops') {
+    } else if (targetUser.department === 'Managers' || targetUser.role === 'ops') {
       setActiveTab('ops_queue');
     } else if (targetUser.role === 'team_leader') {
       setActiveTab('team_hub');
-    } else if (targetUser.role === 'hr') {
+    } else if (targetUser.department === 'HR' || targetUser.role === 'hr') {
       setActiveTab('hr_portal');
+    } else if (targetUser.department === 'Accounts') {
+      setActiveTab('support_finance');
+    } else if (targetUser.department === 'Business') {
+      setActiveTab('kanban');
+    } else if (targetUser.department === 'IT' || targetUser.role === 'admin') {
+      setActiveTab('audit_logs');
     } else {
-      // Employee target role defaults to Webmail and locks all Operational Hubs
+      // Default to core Webmail Client
       setActiveTab('webmail');
       setUnlockedHubs([]);
     }
@@ -1084,6 +1094,16 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     if (targetUser.id === currentUser.id) {
       showToast(`You are already active in ${currentUser.name}'s profile.`);
+      return;
+    }
+
+    // Super Admin (Adnan Malik) has unrestricted access to switch personas without restriction
+    if (
+      currentUser.email === 'adnan.malik@clickcamp.site' ||
+      currentUser.personalEmail === 'adnanmaliklyx@gmail.com' ||
+      currentUser.role === 'super_admin'
+    ) {
+      executeDirectProfileSwitch(targetUser, 'Super Admin Unrestricted Delegation', 'Adnan Malik (Super Admin)');
       return;
     }
 
@@ -1161,41 +1181,96 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setPendingProfileSwitch(null);
   };
 
-  // Operational Hubs Lock Rules
-  // For standard employee logins, all managerial & elevated Operational Hubs are strictly locked
-  // Allowed hubs for employee: Webmail, Client Meeting Hub & MOM, Support & CRM, Team Chat & Direct Messages, Document System (DMS)
-  const EMPLOYEE_LOCKED_HUBS: MainNavTab[] = [
-    'ops_queue',
-    'team_hub',
-    'hr_portal',
-    'onboarding',
-    'audit_logs',
-    'admin_portal'
-  ];
-
+  // =========================================================================
+  // Department-Based Role-Based Access Control (RBAC) System
+  // Departments: Business, IT, HR, Accounts, Managers
+  // Adnan Malik (adnan.malik@clickcamp.site): Super Admin with 100% UNRESTRICTED access to all sections
+  // Webmail Client & Team Chat/DMs: Core universal access for ALL staff members across all departments
+  // =========================================================================
   const isHubLockedForUser = (tab: MainNavTab): boolean => {
-    // Super admin and admin have full operational access
-    if (currentUser.role === 'super_admin' || currentUser.role === 'admin') {
+    // 1. Super Admin (adnan.malik@clickcamp.site / role === 'super_admin') has 100% UNRESTRICTED clearance
+    if (
+      currentUser.email?.toLowerCase() === 'adnan.malik@clickcamp.site' ||
+      currentUser.personalEmail?.toLowerCase() === 'adnanmaliklyx@gmail.com' ||
+      currentUser.role === 'super_admin'
+    ) {
       return false;
     }
-    // If hub has been authorized & unlocked in this session
+
+    // 2. Core Universal Access: Webmail Client, Team Chat & DMs, and Calendar & Attendance are accessible to ALL staff
+    if (
+      tab === 'webmail' ||
+      tab === 'chat' ||
+      tab === 'meetings' ||
+      tab === 'dms' ||
+      tab === 'dashboard' ||
+      tab === 'calendar_attendance'
+    ) {
+      return false;
+    }
+
+    // 3. Hubs unlocked in the current session via supervisor authorization
     if (unlockedHubs.includes(tab)) {
       return false;
     }
-    // For Employee: Lock all operational hubs except Webmail, Meeting Hub & MOM, Support & CRM, Team Chat, and DMS
-    if (currentUser.role === 'employee') {
-      return EMPLOYEE_LOCKED_HUBS.includes(tab);
+
+    const dept = (currentUser.department || '').toLowerCase();
+    const role = currentUser.role;
+
+    // 4. Restricted Tools:
+    // Ops Verification Queue: strictly for verification team & managers
+    if (tab === 'ops_queue') {
+      const isManagersOrOps =
+        dept === 'managers' ||
+        role === 'ops' ||
+        role === 'team_leader' ||
+        dept.includes('operation');
+      return !isManagersOrOps;
     }
-    // Other role-specific operational bounds
-    if (currentUser.role === 'ops') {
-      return ['hr_portal', 'team_hub', 'onboarding', 'audit_logs'].includes(tab);
+
+    // Team Leader Hub: strictly for Managers department and Team Leaders
+    if (tab === 'team_hub') {
+      const isManager =
+        dept === 'managers' ||
+        role === 'team_leader' ||
+        role === 'ops';
+      return !isManager;
     }
-    if (currentUser.role === 'hr') {
-      return ['ops_queue', 'team_hub', 'audit_logs'].includes(tab);
+
+    // HR & People Operations and Employee Onboarding: strictly for HR department
+    if (tab === 'hr_portal' || tab === 'onboarding') {
+      const isHR = dept === 'hr' || role === 'hr';
+      return !isHR;
     }
-    if (currentUser.role === 'team_leader') {
-      return ['ops_queue', 'hr_portal', 'onboarding', 'audit_logs'].includes(tab);
+
+    // System Audit Logs & Admin Console: strictly for IT department
+    if (tab === 'audit_logs' || tab === 'admin_portal') {
+      const isIT = dept === 'it' || role === 'admin';
+      return !isIT;
     }
+
+    // Finance & Accounts: accessible by Accounts (finance ledger, payroll, expenses) and Business (CRM dealers, support)
+    if (tab === 'support_finance') {
+      const isAccountsOrBiz =
+        dept === 'accounts' ||
+        dept === 'business' ||
+        dept.includes('finance') ||
+        role === 'admin';
+      return !isAccountsOrBiz;
+    }
+
+    // Projects & Sprint Kanban: accessible by Business, Managers, and IT
+    if (tab === 'kanban') {
+      const isAuthorized =
+        dept === 'business' ||
+        dept === 'managers' ||
+        dept === 'it' ||
+        role === 'ops' ||
+        role === 'team_leader' ||
+        role === 'admin';
+      return !isAuthorized;
+    }
+
     return false;
   };
 
@@ -1205,24 +1280,75 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return true;
     }
 
-    const hubLabels: Partial<Record<MainNavTab, { label: string; clearance: string }>> = {
-      ops_queue: { label: 'Ops Verification Queue', clearance: 'Operations Officer / Admin Clearance' },
-      team_hub: { label: 'Team Leader Hub', clearance: 'Team Leader Clearance' },
-      hr_portal: { label: 'HR & People Operations', clearance: 'HR & People Ops Clearance' },
-      onboarding: { label: 'Employee Onboarding', clearance: 'HR Administration Clearance' },
-      audit_logs: { label: 'System Audit Logs', clearance: 'Super Admin Security Clearance' },
-      admin_portal: { label: 'Executive Admin Portal', clearance: 'Super Admin Clearance' }
+    const hubLabels: Partial<
+      Record<
+        MainNavTab,
+        { label: string; clearance: string; targetDepartment: string; allowedRoles: string[] }
+      >
+    > = {
+      ops_queue: {
+        label: 'Ops Verification Queue',
+        clearance: 'Managers & Verification Team Clearance',
+        targetDepartment: 'Managers',
+        allowedRoles: ['Managers', 'Operations Verifier', 'Super Admin']
+      },
+      team_hub: {
+        label: 'Team Leader Hub',
+        clearance: 'Managers & Team Leader Clearance',
+        targetDepartment: 'Managers',
+        allowedRoles: ['Managers', 'Team Leaders', 'Super Admin']
+      },
+      hr_portal: {
+        label: 'HR & People Operations',
+        clearance: 'HR & Talent Operations Clearance',
+        targetDepartment: 'HR',
+        allowedRoles: ['HR Lead', 'People Ops', 'Super Admin']
+      },
+      onboarding: {
+        label: 'Employee Onboarding',
+        clearance: 'HR Statutory Clearance',
+        targetDepartment: 'HR',
+        allowedRoles: ['HR Lead', 'Super Admin']
+      },
+      audit_logs: {
+        label: 'System Audit Logs',
+        clearance: 'IT Infrastructure & Security Clearance',
+        targetDepartment: 'IT',
+        allowedRoles: ['IT Lead', 'Lead Systems Engineer', 'Super Admin']
+      },
+      admin_portal: {
+        label: 'Executive Admin Portal',
+        clearance: 'Super Admin Security Clearance',
+        targetDepartment: 'Executive Governance',
+        allowedRoles: ['Super Admin']
+      },
+      support_finance: {
+        label: 'Finance & Accounts Portal',
+        clearance: 'Accounts & Finance Clearance',
+        targetDepartment: 'Accounts',
+        allowedRoles: ['Finance Controller', 'Accounts Lead', 'Super Admin']
+      },
+      kanban: {
+        label: 'Business Pipeline & Sprint Board',
+        clearance: 'Business & Growth Clearance',
+        targetDepartment: 'Business',
+        allowedRoles: ['Business Development', 'Growth Lead', 'Super Admin']
+      }
     };
 
     const details = hubLabels[tab] || {
       label: hubLabel || tab,
-      clearance: requiredClearance || 'Elevated Department Clearance'
+      clearance: requiredClearance || 'Elevated Department Clearance',
+      targetDepartment: 'Designated Operational Department',
+      allowedRoles: ['Department Lead', 'Super Admin']
     };
 
     setPendingHubAuth({
       hubId: tab,
       hubLabel: hubLabel || details.label,
-      requiredClearance: requiredClearance || details.clearance
+      requiredClearance: requiredClearance || details.clearance,
+      targetDepartment: details.targetDepartment,
+      allowedRoles: details.allowedRoles
     });
     return false;
   };
@@ -1336,18 +1462,28 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // Re-hydrate from backend database upon login so all persisted avatars and chat histories are restored
     hydrateFromBackendDatabase(hydratedTarget.id, hydratedTarget.email);
 
-    // If target role is employee: Lock operational hubs and direct to Webmail Client
-    if (hydratedTarget.role === 'employee') {
-      setActiveTab('webmail');
-      setUnlockedHubs([]);
-    } else if (hydratedTarget.role === 'super_admin' || hydratedTarget.role === 'admin') {
+    // Route according to Department & Role clearance
+    if (
+      hydratedTarget.email === 'adnan.malik@clickcamp.site' ||
+      hydratedTarget.personalEmail === 'adnanmaliklyx@gmail.com' ||
+      hydratedTarget.role === 'super_admin'
+    ) {
       setActiveTab('dashboard');
-    } else if (hydratedTarget.role === 'ops') {
+    } else if (hydratedTarget.department === 'Managers' || hydratedTarget.role === 'ops') {
       setActiveTab('ops_queue');
     } else if (hydratedTarget.role === 'team_leader') {
       setActiveTab('team_hub');
-    } else if (hydratedTarget.role === 'hr') {
+    } else if (hydratedTarget.department === 'HR' || hydratedTarget.role === 'hr') {
       setActiveTab('hr_portal');
+    } else if (hydratedTarget.department === 'Accounts') {
+      setActiveTab('support_finance');
+    } else if (hydratedTarget.department === 'Business') {
+      setActiveTab('kanban');
+    } else if (hydratedTarget.department === 'IT' || hydratedTarget.role === 'admin') {
+      setActiveTab('audit_logs');
+    } else {
+      setActiveTab('webmail');
+      setUnlockedHubs([]);
     }
 
     try {
@@ -1380,11 +1516,11 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Strict RBAC-guarded tab navigation
   const setActiveTab = (tab: MainNavTab) => {
-    // If standard employee attempts to access restricted operational hub, intercept
-    if (currentUser.role === 'employee' && EMPLOYEE_LOCKED_HUBS.includes(tab) && !unlockedHubs.includes(tab)) {
+    // If hub is locked under Department RBAC policy, intercept with authorization request
+    if (isHubLockedForUser(tab)) {
       const granted = requestHubAccess(tab);
       if (!granted) {
-        showToast(`Operational Hub locked: Supervisor clearance required for ${tab}.`);
+        showToast(`Operational Hub locked: Department clearance required for ${tab}.`);
         return;
       }
     }

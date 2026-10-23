@@ -27,7 +27,8 @@ import {
   UserCheck,
   UserPlus,
   Camera,
-  Layers
+  Layers,
+  Calendar
 } from 'lucide-react';
 
 // Profile Settings & Custom PFP
@@ -51,6 +52,7 @@ import { SupportFinanceWorkspace } from '../dashboard/SupportFinanceWorkspace';
 import { AuditLogWorkspace } from '../dashboard/AuditLogWorkspace';
 import { OnboardingPortal } from '../auth/OnboardingPortal';
 import { KanbanBoardWorkspace } from '../dashboard/KanbanBoardWorkspace';
+import { CalendarAttendanceWorkspace } from '../dashboard/CalendarAttendanceWorkspace';
 
 export const DashboardView: React.FC = () => {
   const {
@@ -59,6 +61,7 @@ export const DashboardView: React.FC = () => {
     activeTab,
     setActiveTab,
     switchUserRole,
+    requestProfileSwitch,
     logoutUser,
     lockScreen,
     punchState,
@@ -84,6 +87,12 @@ export const DashboardView: React.FC = () => {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isDatabaseModalOpen, setIsDatabaseModalOpen] = useState(false);
 
+  // Check if current user is Super Admin (Adnan Malik)
+  const isSuperAdmin =
+    currentUser.email?.toLowerCase() === 'adnan.malik@clickcamp.site' ||
+    currentUser.personalEmail?.toLowerCase() === 'adnanmaliklyx@gmail.com' ||
+    currentUser.role === 'super_admin';
+
   // Format punch clock elapsed time HH:MM:SS
   const formatElapsed = (totalSecs: number) => {
     const hours = Math.floor(totalSecs / 3600);
@@ -94,81 +103,132 @@ export const DashboardView: React.FC = () => {
       .padStart(2, '0')}`;
   };
 
-  // Navigation Items
+  // Department Roster for Quick RBAC & Persona Context Switching
+  const departmentsList: {
+    dept: string;
+    label: string;
+    code: string;
+    targetEmail: string;
+    role: UserRole;
+  }[] = [
+    {
+      dept: 'Super Admin',
+      label: 'Super Admin & Executive Governance',
+      code: 'SUP',
+      targetEmail: 'adnan.malik@clickcamp.site',
+      role: 'super_admin'
+    },
+    {
+      dept: 'Managers',
+      label: 'Managers & Ops Verification',
+      code: 'MGR',
+      targetEmail: 'vikram.malhotra@clickcamp.site',
+      role: 'ops'
+    },
+    {
+      dept: 'HR',
+      label: 'HR & People Operations',
+      code: 'HR',
+      targetEmail: 'priya.nambiar@clickcamp.site',
+      role: 'hr'
+    },
+    {
+      dept: 'Accounts',
+      label: 'Finance & Accounts',
+      code: 'ACC',
+      targetEmail: 'rajesh.gupta@clickcamp.site',
+      role: 'employee'
+    },
+    {
+      dept: 'IT',
+      label: 'IT Systems & Security',
+      code: 'IT',
+      targetEmail: 'rohan.patel@clickcamp.site',
+      role: 'admin'
+    },
+    {
+      dept: 'Business',
+      label: 'Business & Client Growth',
+      code: 'BIZ',
+      targetEmail: 'sneha.sharma@clickcamp.site',
+      role: 'employee'
+    }
+  ];
+
+  // Navigation Items with Department Assignments & Core Access designation
   const navItems: {
     id: MainNavTab;
     label: string;
     icon: React.ReactNode;
     badge?: number | string;
-    isEmployeeHub?: boolean;
+    isCoreHub?: boolean; // Webmail, Chat, Meetings, DMS, Dashboard
+    targetDepartment?: string;
     clearance?: string;
   }[] = [
-    // 5 Core Authorized Employee Hubs:
+    // 1. Core Universal Staff Hubs (Universal for ALL staff members across all departments):
     {
       id: 'webmail',
       label: 'Webmail Client',
       icon: <Mail className="w-4 h-4" />,
       badge: webmail.filter((m) => m.folder === 'inbox' && !m.isRead).length,
-      isEmployeeHub: true,
-      clearance: 'Employee Permitted'
-    },
-    {
-      id: 'meetings',
-      label: 'Meeting Hub & MOM',
-      icon: <Video className="w-4 h-4" />,
-      isEmployeeHub: true,
-      clearance: 'Employee Permitted'
-    },
-    {
-      id: 'support_finance',
-      label: 'Support & CRM',
-      icon: <LifeBuoy className="w-4 h-4" />,
-      isEmployeeHub: true,
-      clearance: 'Employee Permitted'
+      isCoreHub: true,
+      clearance: 'Universal Staff Access'
     },
     {
       id: 'chat',
       label: 'Team Chat & Direct Messages',
       icon: <MessageSquare className="w-4 h-4" />,
-      isEmployeeHub: true,
-      clearance: 'Employee Permitted'
+      isCoreHub: true,
+      clearance: 'Universal Staff Access'
+    },
+    {
+      id: 'meetings',
+      label: 'Meeting Hub & MOM',
+      icon: <Video className="w-4 h-4" />,
+      isCoreHub: true,
+      clearance: 'Universal Staff Access'
     },
     {
       id: 'dms',
       label: 'Document System (DMS)',
       icon: <FolderOpen className="w-4 h-4" />,
-      isEmployeeHub: true,
-      clearance: 'Employee Permitted'
+      isCoreHub: true,
+      clearance: 'Universal Staff Access'
     },
     {
-      id: 'kanban',
-      label: 'Projects & Kanban Board',
-      icon: <Layers className="w-4 h-4" />,
-      badge: 'Sprint 14',
-      isEmployeeHub: true,
-      clearance: 'Employee Permitted'
+      id: 'calendar_attendance',
+      label: 'Calendar & Attendance',
+      icon: <Calendar className="w-4 h-4" />,
+      isCoreHub: true,
+      clearance: 'Universal Staff Access'
     },
     {
       id: 'dashboard',
-      label: `${currentUser.roleLabel} Workspace`,
+      label: `${currentUser.department || currentUser.roleLabel} Workspace`,
       icon: <LayoutDashboard className="w-4 h-4" />,
-      isEmployeeHub: true,
-      clearance: 'Employee Permitted'
+      isCoreHub: true,
+      clearance: 'Universal Staff Access'
     },
-    // Managerial & Administrative Operational Hubs (Restricted / Locked for Employees):
+
+    // 2. Department-Specific Operational Hubs:
+    // Managers & Verification Team:
     {
       id: 'ops_queue',
       label: 'Ops Verification Queue',
       icon: <ShieldCheck className="w-4 h-4" />,
       badge: clientAccounts.filter((a) => a.status === 'pending').length,
-      clearance: 'Operations Lead / Admin Clearance'
+      targetDepartment: 'Managers',
+      clearance: 'Managers & Verification Team Clearance'
     },
     {
       id: 'team_hub',
       label: 'Team Leader Hub',
       icon: <Users className="w-4 h-4" />,
-      clearance: 'Team Leader Clearance'
+      targetDepartment: 'Managers',
+      clearance: 'Managers & Team Leader Clearance'
     },
+
+    // HR Department:
     {
       id: 'hr_portal',
       label: 'HR & People Operations',
@@ -176,6 +236,7 @@ export const DashboardView: React.FC = () => {
       badge:
         pendingOnboarding.filter((o) => o.status === 'pending_approval').length +
         leaves.filter((l) => l.status === 'pending').length,
+      targetDepartment: 'HR',
       clearance: 'HR & People Ops Clearance'
     },
     {
@@ -183,13 +244,36 @@ export const DashboardView: React.FC = () => {
       label: 'Employee Onboarding',
       icon: <UserPlus className="w-4 h-4" />,
       badge: pendingOnboarding.filter((o) => o.status === 'pending_approval').length || undefined,
-      clearance: 'HR Administration Clearance'
+      targetDepartment: 'HR',
+      clearance: 'HR Statutory Clearance'
     },
+
+    // Accounts & Finance / Business:
+    {
+      id: 'support_finance',
+      label: 'Finance & Accounts / CRM',
+      icon: <LifeBuoy className="w-4 h-4" />,
+      targetDepartment: 'Accounts',
+      clearance: 'Accounts & Finance Clearance'
+    },
+
+    // Business & Growth:
+    {
+      id: 'kanban',
+      label: 'Business Pipeline & Projects',
+      icon: <Layers className="w-4 h-4" />,
+      badge: 'Sprint 14',
+      targetDepartment: 'Business',
+      clearance: 'Business & Growth Clearance'
+    },
+
+    // IT Department:
     {
       id: 'audit_logs',
       label: 'System Audit Logs',
       icon: <FileText className="w-4 h-4" />,
-      clearance: 'Super Admin Security Clearance'
+      targetDepartment: 'IT',
+      clearance: 'IT Infrastructure & Security Clearance'
     }
   ];
 
@@ -200,22 +284,46 @@ export const DashboardView: React.FC = () => {
     }
   };
 
+  // Switch persona using department quick selector
+  const handleDepartmentSelect = (targetEmail: string, role: UserRole) => {
+    const targetUser = allUsers.find(
+      (u) =>
+        u.email.toLowerCase() === targetEmail.toLowerCase() ||
+        (u.personalEmail && u.personalEmail.toLowerCase() === targetEmail.toLowerCase()) ||
+        u.role === role
+    );
+    if (targetUser) {
+      requestProfileSwitch(role, targetUser);
+    } else {
+      switchUserRole(role);
+    }
+  };
+
   // Render role-specific workspace component for the primary tab
   const renderRoleDashboard = () => {
-    switch (currentUser.role) {
-      case 'super_admin':
-      case 'admin':
-        return <AdminWorkspace />;
-      case 'hr':
-        return <HRWorkspace />;
-      case 'ops':
-        return <OpsWorkspace />;
-      case 'team_leader':
-        return <TeamLeaderWorkspace />;
-      case 'employee':
-      default:
-        return <EmployeeWorkspace />;
+    if (isSuperAdmin) {
+      return <AdminWorkspace />;
     }
+    const dept = (currentUser.department || '').toLowerCase();
+    if (dept === 'managers' || currentUser.role === 'ops') {
+      return <OpsWorkspace />;
+    }
+    if (dept === 'hr' || currentUser.role === 'hr') {
+      return <HRWorkspace />;
+    }
+    if (currentUser.role === 'team_leader') {
+      return <TeamLeaderWorkspace />;
+    }
+    if (dept === 'it' || currentUser.role === 'admin') {
+      return <AuditLogWorkspace />;
+    }
+    if (dept === 'business') {
+      return <KanbanBoardWorkspace />;
+    }
+    if (dept === 'accounts') {
+      return <SupportFinanceWorkspace />;
+    }
+    return <EmployeeWorkspace />;
   };
 
   const unreadNotificationsCount = notifications.filter((n) => !n.isRead).length;
@@ -251,74 +359,85 @@ export const DashboardView: React.FC = () => {
             </button>
           </div>
 
-          {/* Quick RBAC Role Switcher with Profile Lock */}
+          {/* Quick Department & RBAC Context Switcher */}
           <div className="p-3 border-b border-neutral-800/80 bg-neutral-950/40 shrink-0">
             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider mb-1.5 px-1">
               <span className="flex items-center gap-1 text-neutral-300">
-                {isProfileLockEnforced && <Lock className="w-3 h-3 text-amber-400" />}
-                <span>Role Context</span>
+                {isProfileLockEnforced && !isSuperAdmin && <Lock className="w-3 h-3 text-amber-400" />}
+                <span>Department RBAC</span>
               </span>
               <span
                 className={`text-[9.5px] font-mono uppercase px-1.5 py-0.2 rounded border ${
-                  isProfileLockEnforced
+                  isSuperAdmin
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 font-bold'
+                    : isProfileLockEnforced
                     ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                     : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                 }`}
               >
-                {isProfileLockEnforced ? 'Profile Locked' : 'RBAC Active'}
+                {isSuperAdmin ? 'Super Admin' : isProfileLockEnforced ? 'Profile Locked' : 'RBAC Active'}
               </span>
             </div>
+
+            {/* Department Context Pill Buttons: SUP, MGR, HR, ACC, IT, BIZ */}
             <div className="grid grid-cols-6 gap-1">
-              {(['super_admin', 'admin', 'hr', 'ops', 'team_leader', 'employee'] as UserRole[]).map((r) => {
-                const isSelected = currentUser.role === r;
-                const labels: Record<UserRole, string> = {
-                  super_admin: 'SUP',
-                  admin: 'ADM',
-                  hr: 'HR',
-                  ops: 'OPS',
-                  team_leader: 'TL',
-                  employee: 'EMP'
-                };
+              {departmentsList.map((d) => {
+                const isSelected =
+                  (d.dept === 'Super Admin' && isSuperAdmin) ||
+                  (!isSuperAdmin && (currentUser.department || '').toLowerCase() === d.dept.toLowerCase());
                 return (
                   <button
-                    key={r}
-                    onClick={() => switchUserRole(r)}
-                    className={`py-1 text-[10px] font-bold rounded-md transition cursor-pointer border relative ${
+                    key={d.dept}
+                    onClick={() => handleDepartmentSelect(d.targetEmail, d.role)}
+                    className={`py-1 text-[10px] font-bold rounded-md transition cursor-pointer border relative text-center ${
                       isSelected
                         ? 'bg-emerald-500 text-neutral-950 border-emerald-400 shadow-xs'
                         : 'bg-neutral-800/80 text-neutral-400 border-neutral-700 hover:bg-neutral-700 hover:text-white'
                     }`}
                     title={
                       isSelected
-                        ? `Current Active Profile: ${r.toUpperCase()}`
-                        : isProfileLockEnforced
-                        ? `Switch to ${r.toUpperCase()} Profile (Locked - Password Required)`
-                        : `Switch to ${r.toUpperCase()} Persona`
+                        ? `Active Department: ${d.label}`
+                        : isSuperAdmin
+                        ? `Switch to ${d.label} (Super Admin Unrestricted)`
+                        : `Switch to ${d.label} (Password Required)`
                     }
                   >
-                    {labels[r]}
-                    {!isSelected && isProfileLockEnforced && (
+                    {d.code}
+                    {!isSelected && isProfileLockEnforced && !isSuperAdmin && (
                       <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-amber-400" />
                     )}
                   </button>
                 );
               })}
             </div>
+
+            {/* Active Department Designation Label */}
+            <div className="mt-2 px-1 flex items-center justify-between text-[10px] text-neutral-400">
+              <span className="truncate">
+                Dept: <strong className="text-white font-medium">{currentUser.department || 'General'}</strong>
+              </span>
+              {isSuperAdmin && (
+                <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  Unrestricted
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Navigation Links Scrollable */}
-          <nav className="p-3 space-y-1 overflow-y-auto flex-1 text-xs">
-            {currentUser.role === 'employee' ? (
-              <>
-                <div className="px-2 pt-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center justify-between">
-                  <span>Permitted Hubs</span>
-                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                    5 Core Tools
-                  </span>
-                </div>
+          <nav className="p-3 space-y-3 overflow-y-auto flex-1 text-xs">
+            {/* 1. CORE UNIVERSAL STAFF TOOLS (Webmail, Chat, Meetings, DMS, Dashboard) */}
+            <div>
+              <div className="px-2 pt-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center justify-between">
+                <span>Core Staff Tools</span>
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                  Universal Access
+                </span>
+              </div>
 
+              <div className="space-y-1 mt-1">
                 {navItems
-                  .filter((item) => item.isEmployeeHub)
+                  .filter((item) => item.isCoreHub)
                   .map((item) => {
                     const isActive = activeTab === item.id;
                     return (
@@ -352,25 +471,27 @@ export const DashboardView: React.FC = () => {
                       </button>
                     );
                   })}
+              </div>
+            </div>
 
-                <div className="pt-4 px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-400 flex items-center justify-between border-t border-neutral-800/80 mt-3">
-                  <span className="flex items-center gap-1.5 text-neutral-300">
-                    <Lock className="w-3 h-3 text-amber-400" />
-                    <span>Restricted Operational Hubs</span>
-                  </span>
-                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                    Locked
-                  </span>
-                </div>
-                <div className="px-2 pb-1.5 text-[10px] text-neutral-400 leading-tight">
-                  Requires supervisor authorization password to unlock.
-                </div>
+            {/* 2. DEPARTMENT OPERATIONAL HUBS */}
+            <div>
+              <div className="px-2 pt-1 pb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-300 flex items-center justify-between border-t border-neutral-800/80 pt-3">
+                <span className="truncate">
+                  {isSuperAdmin
+                    ? 'All Operational Hubs'
+                    : `${currentUser.department || 'Department'} Hubs`}
+                </span>
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 shrink-0">
+                  {isSuperAdmin ? 'Unrestricted' : 'Assigned'}
+                </span>
+              </div>
 
+              <div className="space-y-1 mt-1">
                 {navItems
-                  .filter((item) => !item.isEmployeeHub)
+                  .filter((item) => !item.isCoreHub && !isHubLockedForUser(item.id))
                   .map((item) => {
                     const isActive = activeTab === item.id;
-                    const isLocked = isHubLockedForUser(item.id);
                     return (
                       <button
                         key={item.id}
@@ -378,15 +499,8 @@ export const DashboardView: React.FC = () => {
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                           isActive
                             ? 'bg-emerald-500 text-neutral-950 font-bold shadow-xs'
-                            : isLocked
-                            ? 'text-neutral-400 hover:text-amber-200 hover:bg-neutral-800/70 border border-transparent hover:border-amber-500/30'
                             : 'text-neutral-300 hover:text-white hover:bg-neutral-800/80'
                         }`}
-                        title={
-                          isLocked
-                            ? `${item.label} (Locked - Enter Supervisor Password to Unlock)`
-                            : item.label
-                        }
                       >
                         <div className="flex items-center gap-2.5 truncate">
                           <span className={isActive ? 'text-neutral-950' : 'text-neutral-400'}>
@@ -396,14 +510,15 @@ export const DashboardView: React.FC = () => {
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0 ml-1">
-                          {isLocked ? (
-                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1">
-                              <Lock className="w-2.5 h-2.5" />
-                              <span>Locked</span>
+                          {isSuperAdmin && (
+                            <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              Full
                             </span>
-                          ) : Boolean(item.badge) ? (
+                          )}
+
+                          {Boolean(item.badge) && (
                             <span
-                              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold shrink-0 ${
+                              className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
                                 isActive
                                   ? 'bg-neutral-950 text-emerald-400'
                                   : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
@@ -411,69 +526,64 @@ export const DashboardView: React.FC = () => {
                             >
                               {item.badge}
                             </span>
-                          ) : null}
+                          )}
                         </div>
                       </button>
                     );
                   })}
-              </>
-            ) : (
-              <>
-                <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
-                  Operational Hubs
+              </div>
+            </div>
+
+            {/* 3. RESTRICTED CROSS-DEPARTMENT TOOLS (Locked for other departments) */}
+            {!isSuperAdmin && navItems.some((item) => !item.isCoreHub && isHubLockedForUser(item.id)) && (
+              <div>
+                <div className="pt-3 px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-400 flex items-center justify-between border-t border-neutral-800/80">
+                  <span className="flex items-center gap-1.5 text-neutral-300">
+                    <Lock className="w-3 h-3 text-amber-400" />
+                    <span>Restricted Tools</span>
+                  </span>
+                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    Locked
+                  </span>
+                </div>
+                <div className="px-2 pb-1.5 text-[9.5px] text-neutral-400 leading-tight">
+                  Restricted to other departmental teams. Password required.
                 </div>
 
-                {navItems.map((item) => {
-                  const isActive = activeTab === item.id;
-                  const isLocked = isHubLockedForUser(item.id);
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleTabSelect(item.id, item.label, item.clearance)}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                        isActive
-                          ? 'bg-emerald-500 text-neutral-950 font-bold shadow-xs'
-                          : isLocked
-                          ? 'text-neutral-400 hover:text-amber-200 hover:bg-neutral-800/70 border border-transparent hover:border-amber-500/30'
-                          : 'text-neutral-300 hover:text-white hover:bg-neutral-800/80'
-                      }`}
-                      title={
-                        isLocked
-                          ? `${item.label} (Locked - Enter Supervisor Password to Unlock)`
-                          : item.label
-                      }
-                    >
-                      <div className="flex items-center gap-2.5 truncate">
-                        <span className={isActive ? 'text-neutral-950' : 'text-neutral-400'}>
-                          {item.icon}
-                        </span>
-                        <span className="truncate">{item.label}</span>
-                      </div>
+                <div className="space-y-1 mt-1">
+                  {navItems
+                    .filter((item) => !item.isCoreHub && isHubLockedForUser(item.id))
+                    .map((item) => {
+                      const isActive = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => handleTabSelect(item.id, item.label, item.clearance)}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                            isActive
+                              ? 'bg-emerald-500 text-neutral-950 font-bold shadow-xs'
+                              : 'text-neutral-400 hover:text-amber-200 hover:bg-neutral-800/70 border border-transparent hover:border-amber-500/30'
+                          }`}
+                          title={`${item.label} (Restricted to ${item.targetDepartment || 'other'} team - Enter password to unlock)`}
+                        >
+                          <div className="flex items-center gap-2.5 truncate">
+                            <span className={isActive ? 'text-neutral-950' : 'text-neutral-400'}>
+                              {item.icon}
+                            </span>
+                            <span className="truncate">{item.label}</span>
+                          </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0 ml-1">
-                        {isLocked && (
-                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1">
-                            <Lock className="w-2.5 h-2.5" />
-                            <span>Locked</span>
-                          </span>
-                        )}
-
-                        {Boolean(item.badge) && (
-                          <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold shrink-0 ${
-                              isActive
-                                ? 'bg-neutral-950 text-emerald-400'
-                                : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                            }`}
-                          >
-                            {item.badge}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </>
+                          <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                              <Lock className="w-2.5 h-2.5" />
+                              <span>{item.targetDepartment || 'Restricted'}</span>
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
             )}
           </nav>
         </div>
@@ -725,17 +835,48 @@ export const DashboardView: React.FC = () => {
                 <Lock className="w-8 h-8" />
               </div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold uppercase tracking-wider">
-                <span>Operational Hub Lockdown</span>
+                <span>Department RBAC Restricted</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-bold text-neutral-900 mt-3">
                 {navItems.find((i) => i.id === activeTab)?.label || 'Restricted Hub'}
               </h2>
-              <p className="text-sm text-neutral-600 mt-2.5 max-w-lg mx-auto leading-relaxed">
-                Direct access to this Operational Hub is locked under ClickCamp workplace security policy. Employee profiles are restricted to 5 authorized core tools: <strong>Webmail Client</strong>, <strong>Meeting Hub & MOM</strong>, <strong>Support & CRM</strong>, <strong>Team Chat & Direct Messages</strong>, and <strong>Document System (DMS)</strong>.
-              </p>
+              <div className="text-sm text-neutral-600 mt-2.5 max-w-lg mx-auto leading-relaxed space-y-2">
+                <p>
+                  Access to this tool is restricted under ClickCamp Role-Based Access Control (RBAC) policy.
+                  {activeTab === 'ops_queue' && (
+                    <strong className="block text-neutral-900 mt-1">
+                      The Ops Verification Queue is strictly restricted to Managers and the Verification Team.
+                    </strong>
+                  )}
+                  {activeTab === 'hr_portal' && (
+                    <strong className="block text-neutral-900 mt-1">
+                      The HR & People Operations hub is strictly restricted to the HR Department.
+                    </strong>
+                  )}
+                  {activeTab === 'onboarding' && (
+                    <strong className="block text-neutral-900 mt-1">
+                      The Employee Onboarding portal is strictly restricted to the HR Department.
+                    </strong>
+                  )}
+                  {activeTab === 'audit_logs' && (
+                    <strong className="block text-neutral-900 mt-1">
+                      The System Audit Logs are strictly restricted to the IT Department.
+                    </strong>
+                  )}
+                  {activeTab === 'team_hub' && (
+                    <strong className="block text-neutral-900 mt-1">
+                      The Team Leader Hub is strictly restricted to the Managers Department.
+                    </strong>
+                  )}
+                </p>
+                <p className="text-xs text-neutral-500 pt-1">
+                  Core staff tools—including <strong>Webmail Client</strong> and <strong>Team Chat & Direct Messages</strong>—remain open and accessible to all staff members across every department.
+                </p>
+              </div>
+
               <div className="mt-4 p-3 bg-neutral-50 rounded-xl border border-neutral-200 text-xs text-neutral-500 max-w-md mx-auto">
                 <span className="font-semibold text-neutral-700">Clearance Required:</span>{' '}
-                {navItems.find((i) => i.id === activeTab)?.clearance || 'Supervisor Authorization Required'}
+                {navItems.find((i) => i.id === activeTab)?.clearance || 'Department Clearance Required'}
               </div>
 
               <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -756,11 +897,19 @@ export const DashboardView: React.FC = () => {
                   <Mail className="w-4 h-4 text-emerald-400" />
                   <span>Go to Webmail Client</span>
                 </button>
+                <button
+                  onClick={() => setActiveTab('chat')}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl transition flex items-center gap-2 cursor-pointer"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Go to Team Chat</span>
+                </button>
               </div>
             </div>
           ) : (
             <>
               {activeTab === 'dashboard' && renderRoleDashboard()}
+              {activeTab === 'calendar_attendance' && <CalendarAttendanceWorkspace />}
               {activeTab === 'kanban' && <KanbanBoardWorkspace />}
               {activeTab === 'ops_queue' && <OpsWorkspace />}
               {activeTab === 'team_hub' && <TeamLeaderWorkspace />}

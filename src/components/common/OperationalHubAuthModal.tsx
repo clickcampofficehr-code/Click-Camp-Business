@@ -108,67 +108,66 @@ export const OperationalHubAuthModal: React.FC = () => {
 
         <div className="p-6">
           {/* Target Hub & Requester Box */}
-          <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-xl mb-5">
+          <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-xl mb-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wide">
-                  Target Operational Hub
+                  Department Restricted Tool
                 </span>
                 <h4 className="text-sm font-bold text-neutral-900 mt-0.5 flex items-center gap-1.5">
                   <FolderLock className="w-4 h-4 text-amber-600" />
                   {pendingHubAuth.hubLabel}
                 </h4>
-                <p className="text-xs text-neutral-600 mt-1">
-                  Required Clearance:{' '}
-                  <span className="font-semibold text-neutral-800">
-                    {pendingHubAuth.requiredClearance}
-                  </span>
-                </p>
+                <div className="mt-1 space-y-0.5 text-xs">
+                  <p className="text-neutral-600">
+                    Designated Department:{' '}
+                    <span className="font-semibold text-neutral-900">
+                      {pendingHubAuth.targetDepartment || 'Elevated Operations'}
+                    </span>
+                  </p>
+                  <p className="text-neutral-600">
+                    Required Clearance:{' '}
+                    <span className="font-semibold text-neutral-800">
+                      {pendingHubAuth.requiredClearance}
+                    </span>
+                  </p>
+                </div>
               </div>
 
               <div className="text-right">
                 <span className="text-[10px] text-neutral-500 block uppercase font-medium">
-                  Logged In As
+                  Active Staff Member
                 </span>
                 <span className="text-xs font-bold text-neutral-900">
                   {currentUser.name}
                 </span>
-                <span className="text-[11px] block text-emerald-700 font-medium">
+                <span className="text-[11px] block text-emerald-700 font-semibold">
+                  Dept: {currentUser.department || 'Staff'}
+                </span>
+                <span className="text-[10px] text-neutral-500 block">
                   {currentUser.roleLabel}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Permitted Hubs Guide */}
-          <div className="p-3.5 bg-neutral-50 border border-neutral-200 rounded-xl mb-5 text-xs text-neutral-700">
-            <div className="flex items-center gap-2 mb-2 font-bold text-neutral-900">
+          {/* Department Access Notice */}
+          <div className="p-3.5 bg-neutral-50 border border-neutral-200 rounded-xl mb-4 text-xs text-neutral-700">
+            <div className="flex items-center gap-2 mb-1.5 font-bold text-neutral-900">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Standard Employee Permitted Hubs:</span>
+              <span>Department RBAC Policy & Universal Core Access:</span>
             </div>
             <p className="text-[11.5px] text-neutral-600 mb-2 leading-relaxed">
-              In accordance with corporate workstation security policy, employee roles have direct access to these 5 hubs:
+              Tools like <strong>Ops Verification Queue</strong> are restricted strictly to their designated operational department (Managers / Verification team). All staff members maintain full, unrestricted access to the <strong>Webmail Client</strong> and <strong>Team Chat & Direct Messages</strong>.
             </p>
             <div className="grid grid-cols-2 gap-2 text-[11px]">
-              <div className="flex items-center gap-1.5 p-1.5 bg-white border border-neutral-200 rounded-lg text-neutral-800 font-medium">
-                <Mail className="w-3.5 h-3.5 text-blue-600" />
-                <span>Webmail Client</span>
+              <div className="flex items-center gap-1.5 p-1.5 bg-white border border-neutral-200 rounded-lg text-emerald-800 font-semibold">
+                <Mail className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Webmail (Universal)</span>
               </div>
-              <div className="flex items-center gap-1.5 p-1.5 bg-white border border-neutral-200 rounded-lg text-neutral-800 font-medium">
-                <Users className="w-3.5 h-3.5 text-purple-600" />
-                <span>Meeting Hub & MOM</span>
-              </div>
-              <div className="flex items-center gap-1.5 p-1.5 bg-white border border-neutral-200 rounded-lg text-neutral-800 font-medium">
-                <Briefcase className="w-3.5 h-3.5 text-amber-600" />
-                <span>Support & CRM</span>
-              </div>
-              <div className="flex items-center gap-1.5 p-1.5 bg-white border border-neutral-200 rounded-lg text-neutral-800 font-medium">
+              <div className="flex items-center gap-1.5 p-1.5 bg-white border border-neutral-200 rounded-lg text-emerald-800 font-semibold">
                 <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Team Chat & Messages</span>
-              </div>
-              <div className="col-span-2 flex items-center gap-1.5 p-1.5 bg-white border border-neutral-200 rounded-lg text-neutral-800 font-medium">
-                <CheckCircle2 className="w-3.5 h-3.5 text-teal-600" />
-                <span>Document System (DMS)</span>
+                <span>Team Chat (Universal)</span>
               </div>
             </div>
           </div>

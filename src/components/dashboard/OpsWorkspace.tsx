@@ -82,7 +82,7 @@ export const OpsWorkspace: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                Ops Review Hub
+                Department: Managers &amp; Verification Team
               </span>
               <span className="text-xs text-neutral-400">Concurrent Collision Protection Active</span>
             </div>

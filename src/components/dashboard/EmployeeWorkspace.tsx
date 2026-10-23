@@ -201,19 +201,19 @@ export const EmployeeWorkspace: React.FC = () => {
             </div>
             <div>
               <h3 className="text-xs font-bold text-neutral-900 flex items-center gap-2">
-                <span>Authorized Operational Hubs</span>
+                <span>Core Staff Tools &amp; Department Hubs</span>
                 <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  5 Permitted Tools
+                  {currentUser.department || 'Staff'} Department
                 </span>
               </h3>
               <p className="text-[11px] text-neutral-500">
-                Employee profile locked to 5 core tools. Managerial and administrative operational hubs require supervisor password.
+                Core tools (Webmail &amp; Team Chat) are universally accessible to all staff. Tools like Ops Verification Queue are restricted to their designated department teams.
               </p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
             <Lock className="w-3.5 h-3.5 text-amber-500" />
-            <span>Operational Hubs Locked</span>
+            <span>Department RBAC Enforced</span>
           </div>
         </div>
 

@@ -1,12 +1,14 @@
 export type UserRole = 'super_admin' | 'admin' | 'hr' | 'ops' | 'team_leader' | 'employee';
 
+export type Department = 'Business' | 'IT' | 'HR' | 'Accounts' | 'Managers';
+
 export interface UserAccount {
   id: string;
   name: string;
   email: string;
   role: UserRole;
   roleLabel: string;
-  department: string;
+  department: Department | 'Executive Leadership & Governance' | string;
   teamId?: string;
   avatarUrl: string;
   designation: string;
@@ -57,9 +59,67 @@ export type MainNavTab =
   | 'chat'
   | 'webmail'
   | 'meetings'
+  | 'calendar_attendance'
   | 'support_finance'
   | 'resources'
   | 'audit_logs';
+
+export type ShiftType = 'general' | 'morning' | 'evening' | 'night';
+
+export interface ShiftSchedule {
+  id: string;
+  name: string;
+  type: ShiftType;
+  startTime: string; // e.g. "09:30 AM"
+  endTime: string; // e.g. "06:30 PM"
+  graceMinutes: number; // e.g. 15
+  breakAllowanceMinutes: number; // e.g. 60
+  workHoursRequired: number; // e.g. 8.5
+  description: string;
+}
+
+export type BreakCategory = 'lunch' | 'tea' | 'coffee' | 'personal' | 'wellness';
+
+export interface BreakRecord {
+  id: string;
+  userId: string;
+  date: string;
+  category: BreakCategory;
+  categoryLabel: string;
+  startTime: string;
+  endTime?: string;
+  durationMinutes: number;
+  maxAllowedMinutes: number;
+  isOverstayed: boolean;
+}
+
+export type AnomalyType =
+  | 'late_login'
+  | 'early_logout'
+  | 'overstay_break'
+  | 'missing_punch_out'
+  | 'under_hours'
+  | 'unauthorized_break';
+
+export interface AttendanceAnomaly {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  department: string;
+  date: string;
+  type: AnomalyType;
+  title: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  detectedAt: string;
+  reportedToHR: boolean;
+  reportedAt?: string;
+  hrStatus: 'pending_explanation' | 'under_review' | 'regularized' | 'escalated' | 'deduction_applied';
+  employeeExplanation?: string;
+  hrNotes?: string;
+  regularizationRequested?: boolean;
+}
 
 export type PunchState = 'clocked_out' | 'clocked_in' | 'on_break';
 
@@ -252,6 +312,8 @@ export interface PendingHubAuth {
   hubId: MainNavTab;
   hubLabel: string;
   requiredClearance: string;
+  targetDepartment?: Department | string;
+  allowedRoles?: string[];
 }
 
 export interface AuditLog {

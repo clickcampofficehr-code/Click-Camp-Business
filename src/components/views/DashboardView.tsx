@@ -28,13 +28,15 @@ import {
   UserPlus,
   Camera,
   Layers,
-  Calendar
+  Calendar,
+  Bot
 } from 'lucide-react';
 
 // Profile Settings & Custom PFP
 import { ProfileSettingsModal } from '../profile/ProfileSettingsModal';
 import { DatabaseSyncModal } from '../common/DatabaseSyncModal';
 import { CompanyLogo } from '../common/CompanyLogo';
+import { SimulatedBotControlModal } from '../common/SimulatedBotControlModal';
 
 // Role-specific Workspaces
 import { AdminWorkspace } from '../dashboard/AdminWorkspace';
@@ -86,6 +88,7 @@ export const DashboardView: React.FC = () => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isDatabaseModalOpen, setIsDatabaseModalOpen] = useState(false);
+  const [isBotModalOpen, setIsBotModalOpen] = useState(false);
 
   // Check if current user is Super Admin (Adnan Malik)
   const isSuperAdmin =
@@ -783,6 +786,17 @@ export const DashboardView: React.FC = () => {
                 <span>DB Sync</span>
               </button>
 
+              {/* 110 Bot Suite Trigger */}
+              <button
+                onClick={() => setIsBotModalOpen(true)}
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 rounded-xl text-xs font-semibold text-white cursor-pointer transition shadow-2xs group"
+                title="110+ Simulated Employee Bots Active 24/7"
+              >
+                <Bot className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                <span>110 Bots (24/7)</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              </button>
+
               {/* Profile Settings Avatar Trigger */}
               <button
                 onClick={() => setIsProfileSettingsOpen(true)}
@@ -990,6 +1004,12 @@ export const DashboardView: React.FC = () => {
       <DatabaseSyncModal
         isOpen={isDatabaseModalOpen}
         onClose={() => setIsDatabaseModalOpen(false)}
+      />
+
+      {/* 24/7 Simulated Employee Bot Suite Modal */}
+      <SimulatedBotControlModal
+        isOpen={isBotModalOpen}
+        onClose={() => setIsBotModalOpen(false)}
       />
     </div>
   );

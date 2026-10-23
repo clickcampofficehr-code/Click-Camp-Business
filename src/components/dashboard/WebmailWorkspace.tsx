@@ -15,8 +15,11 @@ import {
   Paperclip,
   X,
   AlertCircle,
-  ChevronLeft
+  ChevronLeft,
+  Bot,
+  Zap
 } from 'lucide-react';
+import { SimulatedBotControlModal } from '../common/SimulatedBotControlModal';
 
 export const WebmailWorkspace: React.FC = () => {
   const { webmail, sendWebmail, toggleStarEmail, softDeleteEmail, allUsers, currentUser } = useWorkspace();
@@ -24,6 +27,7 @@ export const WebmailWorkspace: React.FC = () => {
   const [activeFolder, setActiveFolder] = useState<'inbox' | 'sent' | 'starred' | 'trash'>('inbox');
   const [selectedMail, setSelectedMail] = useState<WebmailItem | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isBotModalOpen, setIsBotModalOpen] = useState(false);
 
   // Compose Modal state
   const [isComposeOpen, setIsComposeOpen] = useState(false);
@@ -152,6 +156,23 @@ export const WebmailWorkspace: React.FC = () => {
           <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
             <div className="bg-emerald-400 h-full rounded-full w-1/3" />
           </div>
+        </div>
+
+        {/* 110 Bot Suite Status */}
+        <div className="pt-3 border-t border-neutral-800">
+          <button
+            onClick={() => setIsBotModalOpen(true)}
+            className="w-full p-2 rounded-xl bg-neutral-800/80 hover:bg-neutral-800 text-neutral-300 border border-neutral-700/80 text-[11px] font-semibold flex items-center justify-between transition cursor-pointer"
+            title="110+ Simulated Employee Bots Active"
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <Bot className="w-3.5 h-3.5 text-emerald-400 shrink-0 animate-pulse" />
+              <span className="truncate">110 Bot Suite Flow</span>
+            </div>
+            <span className="text-[9px] font-mono px-1 rounded bg-emerald-500/20 text-emerald-400 font-bold shrink-0">
+              24/7
+            </span>
+          </button>
         </div>
       </div>
 
@@ -449,6 +470,11 @@ export const WebmailWorkspace: React.FC = () => {
           </div>
         </div>
       )}
+
+      <SimulatedBotControlModal
+        isOpen={isBotModalOpen}
+        onClose={() => setIsBotModalOpen(false)}
+      />
     </div>
   );
 };

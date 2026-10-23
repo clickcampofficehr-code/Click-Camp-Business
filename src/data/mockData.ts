@@ -783,12 +783,32 @@ export const initialChatMessages: ChatMessage[] = [
   {
     id: 'msg-03',
     channelId: 'c-ops',
-    senderId: 'usr-ops',
-    senderName: 'Rohan Gupta',
+    senderId: 'bot-emp-001',
+    senderName: 'Aarav Mehta',
     senderAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    senderRole: 'Operations',
-    text: 'Apex Logistics client account (REF-CC-88319) is currently locked under my review. Processing verification.',
+    senderRole: 'Senior Verification Analyst',
+    text: 'Daily Account Verification Targets Update: 142/150 Google Ads and Telegram merchant accounts cleared today! SLA turnaround time at 14 minutes.',
     timestamp: '11:46 AM'
+  },
+  {
+    id: 'msg-03b',
+    channelId: 'c-ops',
+    senderId: 'bot-emp-002',
+    senderName: 'Ananya Iyer',
+    senderAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
+    senderRole: 'Merchant KYC Specialist',
+    text: 'Operations verification progress: Bulk KYC review for Batch #409 (45 accounts) completed without discrepancies. Passed to supervisor lock.',
+    timestamp: '11:58 AM'
+  },
+  {
+    id: 'msg-03c',
+    channelId: 'c-hr-attendance',
+    senderId: 'bot-emp-062',
+    senderName: 'Bhaskar Jyoti',
+    senderAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+    senderRole: 'Attendance & Shift Compliance Lead',
+    text: 'HR Policy Query Desk: Reminder to morning shift verifiers—grace period closes at 09:45 AM IST. Any unpunched shifts must have regularizations submitted before 18:00 IST.',
+    timestamp: '12:05 PM'
   },
   {
     id: 'msg-04',
@@ -861,6 +881,95 @@ export const initialChatMessages: ChatMessage[] = [
 
 export const initialWebmail: WebmailItem[] = [
   {
+    id: 'em-bot-01',
+    folder: 'inbox',
+    from: 'Aarav Mehta',
+    fromEmail: 'aarav.mehta@clickcamp.site',
+    toEmail: 'adnan.malik@clickcamp.site',
+    subject: '[DAILY TARGETS] Operations Account Verification Status Report - 142/150 Cleared',
+    body: `Dear Leadership & Team,
+
+Here is the operational report on today's account verification targets:
+
+1. Target Allocation: 150 Corporate Accounts
+2. Completed & Verified: 142 Accounts (94.6% Target Attained)
+3. Platform Breakdown:
+   - Google Ads Accounts: 68 Verified (100% cleared)
+   - Meta Ads Platform: 34 Verified
+   - Telegram Merchant Network: 22 Verified
+   - Shopify & E-commerce: 18 Verified
+4. Pending Verification: 8 Accounts (Under Tier-2 KYC review)
+
+Shift productivity is running ahead of schedule with an average turnaround time of 14.2 minutes per account.
+
+Warm regards,
+Aarav Mehta | Senior Verification Analyst
+ClickCamp Operations Verification Suite`,
+    date: 'Today',
+    isRead: false,
+    isStarred: true
+  },
+  {
+    id: 'em-bot-02',
+    folder: 'inbox',
+    from: 'Priya Nambiar',
+    fromEmail: 'priya.nambiar@clickcamp.site',
+    toEmail: 'all-staff@clickcamp.site',
+    subject: '[HR POLICY] Workstation Attendance Regularization & Shift Grace Window Guidelines',
+    body: `Dear ClickCamp Employees,
+
+People & Talent Operations has published updated guidance regarding attendance and shift governance:
+
+1. Daily Shift Timings & Grace Periods:
+   - General Shift (09:30 AM - 06:30 PM IST): Grace window permits punches up to 09:45 AM IST.
+   - Punches recorded after 09:45 AM will automatically trigger a Late Login Anomaly in the Anomaly Engine.
+
+2. Break Management Rules:
+   - Standard lunch allotment: 45 minutes max.
+   - Cumulative daily breaks must not exceed 60 minutes.
+   - Please utilize the interactive Break Management timer in the Calendar & Attendance portal.
+
+3. Regularization Requests:
+   - Any punch anomalies must be regularized within 48 hours with team leader endorsement.
+
+For queries, reach out to hr@clickcamp.site or ping in the #hr-and-attendance chat channel.
+
+Sincerely,
+Priya Nambiar | Lead - People & Talent Operations
+ClickCamp HR Governance`,
+    date: 'Today',
+    isRead: false,
+    isStarred: false
+  },
+  {
+    id: 'em-bot-03',
+    folder: 'inbox',
+    from: 'Vikram Malhotra',
+    fromEmail: 'vikram.malhotra@clickcamp.site',
+    toEmail: 'adnan.malik@clickcamp.site',
+    subject: '[OPS PROGRESS] Batch #409 Account Verification Sign-Off & KYC Clearance',
+    body: `To: adnan.malik@clickcamp.site, operations@clickcamp.site
+From: Vikram Malhotra & Ops Verification Team
+
+Team,
+
+We are pleased to report that Batch #409 consisting of 45 high-value advertiser accounts has completed multi-point verification:
+
+- MCA Company Registration verified against active government registry
+- Corporate Bank Mandates & IFSC confirmation authenticated
+- Dual supervisor authorization completed in the Ops Verification Queue
+- Deal values totaling INR 18,40,000 forwarded to Accounts for financial ledger balancing
+
+All verification audit logs have been cryptographically committed to the system compliance archive.
+
+Best regards,
+Operations Verification Management
+ClickCamp Digital Hub`,
+    date: 'Today',
+    isRead: true,
+    isStarred: true
+  },
+  {
     id: 'em-01',
     folder: 'inbox',
     from: 'Corporate Operations',
@@ -869,8 +978,8 @@ export const initialWebmail: WebmailItem[] = [
     subject: 'Production Launch Status: Identity Directory & Domain Routing Activated',
     body: 'Dear Adnan,\n\nThe ClickCamp enterprise portal has been successfully provisioned for live production use under the clickcamp.site domain. All test credentials have been purged, and strict credential verification is enforced.\n\nBest Regards,\nClickCamp Business & Technology Services Operations Desk',
     date: 'Oct 23, 2026',
-    isRead: false,
-    isStarred: true
+    isRead: true,
+    isStarred: false
   },
   {
     id: 'em-02',

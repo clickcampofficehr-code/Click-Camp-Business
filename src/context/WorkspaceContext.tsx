@@ -57,6 +57,8 @@ import {
   initialNotifications,
   initialCompanyNotices
 } from '../data/mockData';
+import { SIMULATED_BOT_USERS } from '../data/simulatedBotDirectory';
+import { botEngine } from '../services/SimulatedBotEngine';
 
 interface WorkspaceContextType {
   // Auth & RBAC
@@ -255,6 +257,14 @@ interface WorkspaceContextType {
   pinNotice: (id: string, isPinned: boolean) => Promise<void>;
   refreshNotices: () => Promise<void>;
 
+  // 100+ Simulated Employee Bot Suite
+  isBotSuiteActive: boolean;
+  toggleBotSuite: () => void;
+  triggerInstantBotPulse: () => void;
+  botSimulationCadence: number;
+  setBotSimulationCadence: (sec: number) => void;
+  botPoolSize: number;
+
   // Reset & Purge
   resetSystemData: () => void;
   purgeDemoData: () => void;
@@ -271,13 +281,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [allUsers, setAllUsers] = useState<UserAccount[]>(() => {
     try {
       const saved = localStorage.getItem(`${STORAGE_PREFIX}all_users`);
-      let list = initialUsers;
+      const basePool = [...initialUsers, ...SIMULATED_BOT_USERS];
+      let list = basePool;
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const map = new Map<string, UserAccount>();
-          // Base with initial users (Adnan Malik Super Admin)
-          initialUsers.forEach((u) => map.set(u.id, u));
+          // Base with initial users and simulated bots
+          basePool.forEach((u) => map.set(u.id, u));
           // Overlay saved users, purging demo accounts
           parsed
             .filter(
@@ -327,7 +338,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         };
       });
     } catch {
-      return initialUsers;
+      return [...initialUsers, ...SIMULATED_BOT_USERS];
     }
   });
 
@@ -965,6 +976,108 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const clearToast = () => setActiveToast(null);
+
+  // 100+ Simulated Employee Bot Suite (24/7 realistic message & email automation)
+  const [isBotSuiteActive, setIsBotSuiteActive] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem(`${STORAGE_PREFIX}bot_suite_active`);
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const [botSimulationCadence, setBotSimulationCadence] = useState<number>(45); // 45 seconds (at least once per minute)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`${STORAGE_PREFIX}bot_suite_active`, isBotSuiteActive ? 'true' : 'false');
+    } catch {}
+
+    if (isBotSuiteActive) {
+      botEngine.start(
+        (newMsg) => {
+          setChatMessages((prev) => {
+            const updated = [...prev, newMsg];
+            try {
+              localStorage.setItem(`${STORAGE_PREFIX}chat_messages`, JSON.stringify(updated));
+            } catch {}
+            return updated;
+          });
+          DatabaseService.saveChatMessage(newMsg);
+        },
+        (newMail) => {
+          setWebmail((prev) => {
+            const updated = [newMail, ...prev];
+            try {
+              localStorage.setItem('clickcamp_persistent_emails', JSON.stringify(updated));
+            } catch {}
+            return updated;
+          });
+          DatabaseService.sendWebmail({
+            userId: newMail.fromEmail,
+            senderId: newMail.fromEmail,
+            senderName: newMail.from,
+            senderEmail: newMail.fromEmail,
+            recipientEmail: newMail.toEmail,
+            subject: newMail.subject,
+            body: newMail.body,
+            folder: 'inbox'
+          });
+        },
+        botSimulationCadence * 1000
+      );
+    } else {
+      botEngine.stop();
+    }
+
+    return () => {
+      botEngine.stop();
+    };
+  }, [isBotSuiteActive, botSimulationCadence]);
+
+  const toggleBotSuite = () => {
+    setIsBotSuiteActive((prev) => {
+      const next = !prev;
+      showToast(next ? '100+ Simulated Bot Suite active: Broadcasting 24/7.' : 'Bot suite paused.');
+      return next;
+    });
+  };
+
+  const triggerInstantBotPulse = () => {
+    botEngine.triggerInstantSimulation(
+      (newMsg) => {
+        setChatMessages((prev) => {
+          const updated = [...prev, newMsg];
+          try {
+            localStorage.setItem(`${STORAGE_PREFIX}chat_messages`, JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+        DatabaseService.saveChatMessage(newMsg);
+      },
+      (newMail) => {
+        setWebmail((prev) => {
+          const updated = [newMail, ...prev];
+          try {
+            localStorage.setItem('clickcamp_persistent_emails', JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+        DatabaseService.sendWebmail({
+          userId: newMail.fromEmail,
+          senderId: newMail.fromEmail,
+          senderName: newMail.from,
+          senderEmail: newMail.fromEmail,
+          recipientEmail: newMail.toEmail,
+          subject: newMail.subject,
+          body: newMail.body,
+          folder: 'inbox'
+        });
+      }
+    );
+    showToast('Simulated bot interaction dispatched to Team Chat / Webmail.');
+  };
 
   // Live IST Clock Timer
   useEffect(() => {
@@ -3074,6 +3187,14 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         acknowledgeNotice,
         pinNotice,
         refreshNotices,
+
+        // 100+ Simulated Employee Bot Suite
+        isBotSuiteActive,
+        toggleBotSuite,
+        triggerInstantBotPulse,
+        botSimulationCadence,
+        setBotSimulationCadence,
+        botPoolSize: SIMULATED_BOT_USERS.length,
 
         resetSystemData,
         purgeDemoData,

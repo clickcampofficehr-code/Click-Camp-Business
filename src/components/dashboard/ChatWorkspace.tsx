@@ -16,9 +16,11 @@ import {
   Download,
   Clock,
   Filter,
-  ChevronLeft
+  ChevronLeft,
+  Bot
 } from 'lucide-react';
 import { ChatMessage, UserAccount } from '../../types';
+import { SimulatedBotControlModal } from '../common/SimulatedBotControlModal';
 
 export const ChatWorkspace: React.FC = () => {
   const { currentUser, allUsers, chatMessages, sendChatMessage } = useWorkspace();
@@ -60,12 +62,15 @@ export const ChatWorkspace: React.FC = () => {
     url?: string;
   } | null>(null);
 
+  const [isBotModalOpen, setIsBotModalOpen] = useState<boolean>(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const channels = [
     { id: 'c-general', name: 'general-discussions', description: 'Company-wide townhall & daily announcements' },
-    { id: 'c-ops', name: 'ops-verifications', description: 'Account review coordination & KYC resolution' },
+    { id: 'c-ops', name: 'ops-verifications', description: 'Account review coordination, daily verification targets & KYC' },
+    { id: 'c-hr-attendance', name: 'hr-and-attendance', description: 'Attendance regularizations, shift grace periods & workspace policies' },
     { id: 'c-leads', name: 'leads-and-sales', description: 'Pipeline celebrations & ad campaign updates' },
     { id: 'c-tech', name: 'tech-infrastructure', description: 'Workstation security, VPN & dev status' }
   ];
@@ -397,6 +402,15 @@ export const ChatWorkspace: React.FC = () => {
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span>TLS Audited</span>
             </div>
+
+            <button
+              onClick={() => setIsBotModalOpen(true)}
+              className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/20 transition cursor-pointer"
+              title="110+ Simulated Employee Bots Active 24/7"
+            >
+              <Bot className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+              <span className="hidden sm:inline">110 Bots Active (24/7)</span>
+            </button>
           </div>
         </div>
 
@@ -570,6 +584,11 @@ export const ChatWorkspace: React.FC = () => {
           </button>
         </form>
       </div>
+
+      <SimulatedBotControlModal
+        isOpen={isBotModalOpen}
+        onClose={() => setIsBotModalOpen(false)}
+      />
     </div>
   );
 };
